@@ -83,7 +83,7 @@ async function runOcr(imageBuffer: Buffer): Promise<{ result: OcrResult; rawText
   const base64 = imageBuffer.toString("base64");
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 512,
     messages: [
       {
