@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ledger
 
-## Getting Started
+A personal finance tracker. Send a receipt photo to a Telegram bot — Claude Vision
+reads it, extracts the merchant, amount, and category, and stores it. Review and
+confirm expenses in the PWA dashboard. Track spending against budget buckets.
 
-First, run the development server:
+**Live:** https://ledger-gules-seven.vercel.app  
+**Stack:** Next.js 16, Tailwind v4, Drizzle ORM, Supabase, Anthropic Claude, Telegram Bot API  
+**Platform:** Vercel (production) · Supabase (database + storage + auth)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## How it works
+
+```
+Telegram bot
+  ↓  photo / PDF / text message
+Webhook (app/api/telegram/webhook/)
+  ↓  Claude Vision OCR (lib/ocr.ts)
+Supabase Storage (receipt image) + Postgres (expense row, status: pending_review)
+  ↓
+PWA dashboard — review, confirm, categorise
+  ↓
+Expense history + budget tracking
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Running locally
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Prerequisites:** Node.js 20+, a Supabase project, an Anthropic API key, a Telegram bot token.
 
-## Learn More
+```bash
+git clone https://github.com/kevinchisholmja/ledger.git
+cd ledger
+npm install
+cp .env.local.example .env.local   # fill in your values
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open http://localhost:3000 — you will be redirected to `/login`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Environment variables required: see `docs/env-vars.md`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Project documentation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Document | What it covers |
+|---|---|
+| `docs/build.md` | 40,000-foot view — one section per phase, key facts per phase |
+| `docs/architecture.md` | System design, data flow, component map |
+| `docs/runbook.md` | Deployment, webhook registration, debugging, known issues |
+| `docs/env-vars.md` | Every environment variable, where to get it |
+| `activity/README.md` | How the activity log works |
+| `activity/ToDo.md` | What is planned but not yet started |
+| `playbook/README.md` | The development methodology behind this project |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Project activity log
+
+This project uses `activity/` as its issue tracker — a chronological record of
+everything built, decided, and fixed. No Linear, no Jira, no Notion required.
+
+```
+activity/
+  ToDo.md                    current planned work
+  phases/                    goal + scope + decisions per phase
+  2026/                      dated activity files — the full chronological record
+```
+
+Read `activity/README.md` for the full conventions.
+Read `activity/phases/` to understand what each phase set out to do.
+Read `activity/2026/` to see everything that happened in order.
+
+---
+
+## Key rules for any AI agent working on this codebase
+
+See `CLAUDE.md` and `AGENTS.md` at the project root. Critical points:
+
+- Next.js version is **16.2.6** — not 14, not 15. APIs differ.
+- Tailwind is **v4** — import syntax is `@import "tailwindcss"`, not `@tailwind base`.
+- Database queries use **Drizzle ORM** — never Supabase JS for DB queries.
+- Every Drizzle query must include **`WHERE user_id = X`** — service role bypasses RLS.
+- Postgres connection uses port **6543** (pooler) with **`prepare: false`**.
+- `expenses.amount` is **nullable** — do not add `.notNull()` in the schema.
+- The proxy file is **`proxy.ts`** — Next.js 16 renamed `middleware.ts`.
