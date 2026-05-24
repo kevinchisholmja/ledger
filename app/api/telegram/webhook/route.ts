@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import type { TelegramUpdate } from "@/types/telegram";
+import { runOcr, type OcrResult } from "@/lib/ocr";
 
 // ---------------------------------------------------------------------------
 // Clients (initialised lazily so cold-start doesn't throw on missing env vars
@@ -15,10 +15,6 @@ function getSupabaseAdmin() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!, // service role — bypasses RLS
     { auth: { persistSession: false } }
   );
-}
-
-function getAnthropicClient() {
-  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 }
 
 // ---------------------------------------------------------------------------
@@ -50,75 +46,6 @@ async function downloadTelegramFile(fileId: string): Promise<Buffer> {
   if (!fileRes.ok) throw new Error(`File download failed: ${fileRes.status}`);
   const arrayBuffer = await fileRes.arrayBuffer();
   return Buffer.from(arrayBuffer);
-}
-
-// ---------------------------------------------------------------------------
-// Claude Vision OCR
-// ---------------------------------------------------------------------------
-
-interface OcrResult {
-  merchant: string;
-  amount: number;
-  currency: string;
-  date: string;
-  ai_suggested_category: string;
-  confidence: number;
-}
-
-const OCR_PROMPT = `You are a receipt parser. Analyse the receipt image and extract the following fields.
-Return ONLY valid JSON — no markdown fences, no explanation, no extra keys.
-
-Schema:
-{
-  "merchant": "string — business name",
-  "amount": number — total amount paid (numeric, no currency symbol),
-  "currency": "string — 3-letter ISO code, default JMD if unclear",
-  "date": "string — ISO 8601 date (YYYY-MM-DD), default to today if unclear",
-  "ai_suggested_category": "string — one of: Food & Drink, Groceries, Transport, Utilities, Shopping, Health, Entertainment, Travel, Business, Other",
-  "confidence": number — 0.0–1.0 reflecting your confidence in the extraction
-}`;
-
-async function runOcr(
-  imageBuffer: Buffer,
-  mimeType: string = "image/jpeg"
-): Promise<{ result: OcrResult; rawText: string }> {
-  const client = getAnthropicClient();
-  const base64 = imageBuffer.toString("base64");
-
-  // PDFs use the document block type; images use the image block type.
-  const contentBlock =
-    mimeType === "application/pdf"
-      ? ({
-          type: "document",
-          source: { type: "base64", media_type: "application/pdf", data: base64 },
-        } as const)
-      : ({
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-            data: base64,
-          },
-        } as const);
-
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 512,
-    messages: [
-      {
-        role: "user",
-        content: [contentBlock, { type: "text", text: OCR_PROMPT }],
-      },
-    ],
-  });
-
-  const rawText = message.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as { type: "text"; text: string }).text)
-    .join("");
-
-  const result: OcrResult = JSON.parse(rawText.trim());
-  return { result, rawText };
 }
 
 // ---------------------------------------------------------------------------
