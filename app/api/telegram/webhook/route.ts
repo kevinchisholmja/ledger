@@ -168,10 +168,18 @@ export async function POST(req: NextRequest) {
   const userId = process.env.LEDGER_USER_ID!; // Supabase auth UUID
   const today = new Date().toISOString().split("T")[0];
 
-  // ── 3. Photo branch ───────────────────────────────────────────────────────
-  if (message.photo && message.photo.length > 0) {
-    // Telegram provides multiple resolutions — take the last (highest)
-    const highestRes = message.photo[message.photo.length - 1];
+  // ── 3. Photo / document branch ────────────────────────────────────────────
+  // Telegram sends photos as message.photo (compressed) or message.document
+  // (when "Send as file" is chosen, e.g. a PDF or uncompressed image).
+  const fileId: string | null =
+    message.photo && message.photo.length > 0
+      ? message.photo[message.photo.length - 1].file_id
+      : message.document?.mime_type?.startsWith("image/") ||
+        message.document?.mime_type === "application/pdf"
+      ? message.document.file_id
+      : null;
+
+  if (fileId) {
 
     let receiptUrl: string | null = null;
     let ocrResult: OcrResult | null = null;
@@ -181,7 +189,7 @@ export async function POST(req: NextRequest) {
     // Download image
     let imageBuffer: Buffer;
     try {
-      imageBuffer = await downloadTelegramFile(highestRes.file_id);
+      imageBuffer = await downloadTelegramFile(fileId);
     } catch (err) {
       console.error("Image download failed:", err);
       await sendTelegramMessage(
