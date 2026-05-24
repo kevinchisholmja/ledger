@@ -78,9 +78,28 @@ Schema:
   "confidence": number — 0.0–1.0 reflecting your confidence in the extraction
 }`;
 
-async function runOcr(imageBuffer: Buffer): Promise<{ result: OcrResult; rawText: string }> {
+async function runOcr(
+  imageBuffer: Buffer,
+  mimeType: string = "image/jpeg"
+): Promise<{ result: OcrResult; rawText: string }> {
   const client = getAnthropicClient();
   const base64 = imageBuffer.toString("base64");
+
+  // PDFs use the document block type; images use the image block type.
+  const contentBlock =
+    mimeType === "application/pdf"
+      ? ({
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: base64 },
+        } as const)
+      : ({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+            data: base64,
+          },
+        } as const);
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
@@ -88,13 +107,7 @@ async function runOcr(imageBuffer: Buffer): Promise<{ result: OcrResult; rawText
     messages: [
       {
         role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: "image/jpeg", data: base64 },
-          },
-          { type: "text", text: OCR_PROMPT },
-        ],
+        content: [contentBlock, { type: "text", text: OCR_PROMPT }],
       },
     ],
   });
@@ -169,15 +182,21 @@ export async function POST(req: NextRequest) {
   const today = new Date().toISOString().split("T")[0];
 
   // ── 3. Photo / document branch ────────────────────────────────────────────
-  // Telegram sends photos as message.photo (compressed) or message.document
-  // (when "Send as file" is chosen, e.g. a PDF or uncompressed image).
-  const fileId: string | null =
-    message.photo && message.photo.length > 0
-      ? message.photo[message.photo.length - 1].file_id
-      : message.document?.mime_type?.startsWith("image/") ||
-        message.document?.mime_type === "application/pdf"
-      ? message.document.file_id
-      : null;
+  // Telegram sends photos as message.photo (compressed JPEG) or
+  // message.document (when "Send as file" is chosen — PDF or raw image).
+  let fileId: string | null = null;
+  let fileMime = "image/jpeg"; // default for compressed Telegram photos
+
+  if (message.photo && message.photo.length > 0) {
+    fileId = message.photo[message.photo.length - 1].file_id;
+  } else if (
+    message.document &&
+    (message.document.mime_type?.startsWith("image/") ||
+      message.document.mime_type === "application/pdf")
+  ) {
+    fileId = message.document.file_id;
+    fileMime = message.document.mime_type ?? "image/jpeg";
+  }
 
   if (fileId) {
 
@@ -186,7 +205,7 @@ export async function POST(req: NextRequest) {
     let rawOcrText: string | null = null;
     let status = "pending_ocr";
 
-    // Download image
+    // Download file
     let imageBuffer: Buffer;
     try {
       imageBuffer = await downloadTelegramFile(fileId);
@@ -209,7 +228,7 @@ export async function POST(req: NextRequest) {
 
     // Run OCR — if it fails we store with status 'pending_ocr' for retry
     try {
-      const ocr = await runOcr(imageBuffer);
+      const ocr = await runOcr(imageBuffer, fileMime);
       ocrResult = ocr.result;
       rawOcrText = ocr.rawText;
       status = "pending_review";
