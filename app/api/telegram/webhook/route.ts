@@ -130,7 +130,7 @@ async function uploadReceiptImage(
   telegramUserId: number
 ): Promise<string> {
   const supabase = getSupabaseAdmin();
-  const filename = `receipts/${telegramUserId}/${randomUUID()}.jpg`;
+  const filename = `${telegramUserId}/${randomUUID()}.jpg`;
 
   const { error } = await supabase.storage
     .from("receipts") // bucket must be created manually — see README
