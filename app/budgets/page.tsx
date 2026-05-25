@@ -3,9 +3,9 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { buckets, categories } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import BucketsClient from "./BucketsClient";
+import BudgetsClient from "./BudgetsClient";
 
-export default async function BucketsPage() {
+export default async function BudgetsPage() {
   const user = await requireUser();
 
   const [allBuckets, allCategories] = await Promise.all([
@@ -23,7 +23,7 @@ export default async function BucketsPage() {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6">
-        <BucketsClient buckets={allBuckets} categories={allCategories} />
+        <BudgetsClient budgets={allBuckets} categories={allCategories} />
       </main>
     </div>
   );

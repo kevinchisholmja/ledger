@@ -15,7 +15,7 @@ export default function GlobalError({
         <p className="text-sm text-zinc-400 mt-1">{error.message}</p>
         <button
           onClick={reset}
-          className="mt-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-medium text-white"
+          className="mt-4 rounded-lg bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white"
         >
           Try again
         </button>

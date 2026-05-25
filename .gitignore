@@ -23,6 +23,10 @@
 # misc
 .DS_Store
 *.pem
+/notes
+
+# design reference images (local only — too large for git)
+/design-reference/
 
 # debug
 npm-debug.log*

@@ -37,7 +37,7 @@ export default async function ReviewPage() {
           <Link href="/" className="text-zinc-400 hover:text-white">‹</Link>
           <h1 className="text-base font-semibold">Review</h1>
           {pending.length > 0 && (
-            <span className="ml-auto text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full">
+            <span className="ml-auto text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
               {pending.length}
             </span>
           )}
@@ -50,7 +50,7 @@ export default async function ReviewPage() {
             <p className="text-3xl mb-3">✓</p>
             <p className="text-white font-medium">All caught up</p>
             <p className="text-sm text-zinc-400 mt-1">No expenses waiting for review</p>
-            <Link href="/" className="mt-6 text-sm text-indigo-400 hover:text-indigo-300">
+            <Link href="/" className="mt-6 text-sm text-blue-400 hover:text-blue-300">
               Back to dashboard
             </Link>
           </div>

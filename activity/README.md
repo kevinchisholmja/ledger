@@ -74,7 +74,7 @@ A package install does not.
 ## Tags
 
 ```
-[x]          done
+- [x]          done
 [ ]          planned, not yet started
 [decision]   an architectural or design choice with reasoning
 [bug]        a problem found

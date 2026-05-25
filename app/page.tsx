@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { expenses, buckets } from "@/lib/db/schema";
-import { eq, and, or, inArray, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql } from "drizzle-orm";
+import LogoutButton from "@/app/components/LogoutButton";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -44,8 +45,9 @@ export default async function DashboardPage() {
           <span className="text-lg font-bold tracking-tight">Ledger</span>
           <nav className="flex items-center gap-4 text-sm text-zinc-400">
             <Link href="/review" className="hover:text-white transition-colors">Review</Link>
-            <Link href="/expenses" className="hover:text-white transition-colors">Expenses</Link>
-            <Link href="/buckets" className="hover:text-white transition-colors">Buckets</Link>
+            <Link href="/transactions" className="hover:text-white transition-colors">Transactions</Link>
+            <Link href="/budgets" className="hover:text-white transition-colors">Budgets</Link>
+            <LogoutButton />
           </nav>
         </div>
       </header>
@@ -55,24 +57,24 @@ export default async function DashboardPage() {
         {pendingCount > 0 && (
           <Link
             href="/review"
-            className="flex items-center justify-between rounded-xl bg-indigo-600/20 border border-indigo-500/30 px-4 py-3 hover:bg-indigo-600/30 transition-colors"
+            className="flex items-center justify-between rounded-xl bg-blue-600/20 border border-blue-500/30 px-4 py-3 hover:bg-blue-600/30 transition-colors"
           >
             <div>
-              <p className="font-medium text-indigo-200">
-                {pendingCount} {pendingCount === 1 ? "expense" : "expenses"} need review
+              <p className="font-medium text-blue-200">
+                {pendingCount} {pendingCount === 1 ? "transaction" : "transactions"} need review
               </p>
-              <p className="text-sm text-indigo-300/70 mt-0.5">Tap to confirm or categorise</p>
+              <p className="text-sm text-blue-300/70 mt-0.5">Tap to confirm or categorise</p>
             </div>
-            <span className="text-indigo-300 text-lg">›</span>
+            <span className="text-blue-300 text-lg">›</span>
           </Link>
         )}
 
-        {/* Buckets */}
+        {/* Budgets */}
         {allBuckets.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">Budgets</h2>
-              <Link href="/buckets" className="text-xs text-indigo-400 hover:text-indigo-300">Manage</Link>
+              <Link href="/budgets" className="text-xs text-blue-400 hover:text-blue-300">Manage</Link>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {allBuckets.map((b) => (
@@ -92,15 +94,15 @@ export default async function DashboardPage() {
           </section>
         )}
 
-        {/* Recent expenses */}
+        {/* Recent transactions */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">Recent</h2>
-            <Link href="/expenses" className="text-xs text-indigo-400 hover:text-indigo-300">See all</Link>
+            <Link href="/transactions" className="text-xs text-blue-400 hover:text-blue-300">See all</Link>
           </div>
           {recentExpenses.length === 0 ? (
             <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-8 text-center">
-              <p className="text-zinc-400 text-sm">No expenses yet</p>
+              <p className="text-zinc-400 text-sm">No transactions yet</p>
               <p className="text-zinc-500 text-xs mt-1">Send a receipt photo to your Telegram bot</p>
             </div>
           ) : (
@@ -137,7 +139,7 @@ export default async function DashboardPage() {
 
       {/* Bottom nav for mobile */}
       <nav className="fixed bottom-0 inset-x-0 border-t border-zinc-800 bg-zinc-950 flex safe-area-bottom">
-        <Link href="/" className="flex-1 flex flex-col items-center py-2 text-indigo-400 text-xs gap-1">
+        <Link href="/" className="flex-1 flex flex-col items-center py-2 text-blue-400 text-xs gap-1">
           <span className="text-lg">⊞</span>
           Home
         </Link>
@@ -145,16 +147,16 @@ export default async function DashboardPage() {
           <span className="text-lg">✓</span>
           Review
           {pendingCount > 0 && (
-            <span className="absolute top-1.5 right-1/4 w-2 h-2 rounded-full bg-indigo-500" />
+            <span className="absolute top-1.5 right-1/4 w-2 h-2 rounded-full bg-blue-500" />
           )}
         </Link>
-        <Link href="/expenses" className="flex-1 flex flex-col items-center py-2 text-zinc-400 hover:text-white text-xs gap-1">
+        <Link href="/transactions" className="flex-1 flex flex-col items-center py-2 text-zinc-400 hover:text-white text-xs gap-1">
           <span className="text-lg">≡</span>
-          Expenses
+          Transactions
         </Link>
-        <Link href="/buckets" className="flex-1 flex flex-col items-center py-2 text-zinc-400 hover:text-white text-xs gap-1">
+        <Link href="/budgets" className="flex-1 flex flex-col items-center py-2 text-zinc-400 hover:text-white text-xs gap-1">
           <span className="text-lg">◎</span>
-          Buckets
+          Budgets
         </Link>
       </nav>
       {/* Spacer for fixed bottom nav */}

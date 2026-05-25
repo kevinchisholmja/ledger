@@ -6,6 +6,37 @@ it describes how any project should be approached and structured.*
 
 ---
 
+## Contents
+
+**Methodology** (this file) — how to structure and run a project.
+
+**CLI references** — commands you will actually use, with log-pulling instructions
+for each service:
+
+| File | Covers |
+|---|---|
+| `cli/vercel.md` | Deploy, env vars, pulling Vercel logs |
+| `cli/supabase.md` | Local dev, migrations, pulling Supabase logs |
+| `cli/drizzle.md` | Schema, queries, drizzle-kit commands |
+| `cli/git.md` | Daily git workflow |
+| `cli/github.md` | GitHub CLI — PRs, issues, CI logs |
+| `cli/node-npm.md` | npm, npx, running scripts |
+| `cli/claude-code.md` | Claude Code CLI, CLAUDE.md, memory |
+| `cli/trigger-dev.md` | Background jobs, pulling Trigger.dev logs |
+| `cli/clerk.md` | Auth setup, pulling Clerk logs |
+| `cli/convex.md` | Reactive backend, pulling Convex logs |
+| `cli/localhost.md` | Dev servers, ports, tunnels, testing auth locally |
+
+**Config references** — annotated config files with common gotchas:
+
+| File | Covers |
+|---|---|
+| `config/nextjs.md` | next.config.ts, App Router conventions, common gotchas |
+| `config/typescript.md` | tsconfig.json, common patterns, common errors |
+| `config/package-json.md` | scripts, version pinning, package-lock |
+
+---
+
 ## What this is
 
 A personal methodology for building software projects — solo or in a small team.
@@ -96,8 +127,8 @@ while building Phase 4, that fix is logged in today's file, not in the Phase 1 f
 The phase files capture *what a phase was about*. The dated files capture *what was
 actually done and when*.
 
-When a single day contains two unrelated bodies of work, split into `a` and `b` files:
-`2026-05-24.md` and `2026-05-24b.md`. Split by context, not by clock.
+When a single day file is too long, it split into `a` and `b` files:
+`2026-05-24.md` and `2026-05-24b.md`. Split.
 
 ---
 

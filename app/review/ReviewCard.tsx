@@ -113,7 +113,7 @@ export default function ReviewCard({ expense, categories }: Props) {
               value={merchant}
               onChange={(e) => setMerchant(e.target.value)}
               placeholder="Business name"
-              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -124,7 +124,7 @@ export default function ReviewCard({ expense, categories }: Props) {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
-              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -133,7 +133,7 @@ export default function ReviewCard({ expense, categories }: Props) {
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {["JMD", "USD", "GBP", "EUR", "CAD"].map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -147,7 +147,7 @@ export default function ReviewCard({ expense, categories }: Props) {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -156,7 +156,7 @@ export default function ReviewCard({ expense, categories }: Props) {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">— pick one —</option>
               {CATEGORIES.map((c) => (
@@ -186,7 +186,7 @@ export default function ReviewCard({ expense, categories }: Props) {
           <button
             onClick={() => save("confirmed")}
             disabled={saving}
-            className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 py-2 text-xs font-semibold text-white transition-colors"
+            className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-2 text-xs font-semibold text-white transition-colors"
           >
             {saving ? "Saving…" : "Confirm"}
           </button>

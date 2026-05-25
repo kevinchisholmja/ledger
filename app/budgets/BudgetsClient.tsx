@@ -7,11 +7,11 @@ import type { Bucket, Category } from "@/lib/db/schema";
 const PERIODS = ["weekly", "fortnightly", "monthly", "quarterly", "annual"] as const;
 
 interface Props {
-  buckets: Bucket[];
+  budgets: Bucket[];
   categories: Category[];
 }
 
-export default function BucketsClient({ buckets, categories }: Props) {
+export default function BudgetsClient({ budgets, categories }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -20,10 +20,10 @@ export default function BucketsClient({ buckets, categories }: Props) {
   const [categoryId, setCategoryId] = useState("");
   const [saving, setSaving] = useState(false);
 
-  async function createBucket(e: React.FormEvent) {
+  async function createBudget(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await fetch("/api/buckets", {
+    await fetch("/api/budgets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -41,22 +41,22 @@ export default function BucketsClient({ buckets, categories }: Props) {
     router.refresh();
   }
 
-  async function deleteBucket(id: string) {
+  async function deleteBudget(id: string) {
     if (!confirm("Delete this budget?")) return;
-    await fetch(`/api/buckets/${id}`, { method: "DELETE" });
+    await fetch(`/api/budgets/${id}`, { method: "DELETE" });
     router.refresh();
   }
 
   return (
     <div className="space-y-4">
-      {buckets.length === 0 && !showForm && (
+      {budgets.length === 0 && !showForm && (
         <div className="flex flex-col items-center py-12 text-center">
-          <p className="text-zinc-400 text-sm">No budget buckets yet</p>
+          <p className="text-zinc-400 text-sm">No budgets yet</p>
           <p className="text-zinc-500 text-xs mt-1">Create one to track spending against a limit</p>
         </div>
       )}
 
-      {buckets.map((b) => (
+      {budgets.map((b) => (
         <div key={b.id} className="flex items-center justify-between rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3">
           <div>
             <p className="font-medium text-sm">{b.name}</p>
@@ -71,7 +71,7 @@ export default function BucketsClient({ buckets, categories }: Props) {
               })}
             </p>
             <button
-              onClick={() => deleteBucket(b.id)}
+              onClick={() => deleteBudget(b.id)}
               className="text-xs text-red-400 hover:text-red-300 transition-colors"
             >
               ×
@@ -82,8 +82,8 @@ export default function BucketsClient({ buckets, categories }: Props) {
 
       {showForm ? (
         <form
-          onSubmit={createBucket}
-          className="rounded-xl bg-zinc-900 border border-indigo-500/40 p-4 space-y-3"
+          onSubmit={createBudget}
+          className="rounded-xl bg-zinc-900 border border-blue-500/40 p-4 space-y-3"
         >
           <p className="text-sm font-semibold text-white">New budget</p>
 
@@ -94,7 +94,7 @@ export default function BucketsClient({ buckets, categories }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Dining out"
-              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -104,7 +104,7 @@ export default function BucketsClient({ buckets, categories }: Props) {
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value as typeof period)}
-                className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {PERIODS.map((p) => (
                   <option key={p} value={p} className="capitalize">{p}</option>
@@ -121,7 +121,7 @@ export default function BucketsClient({ buckets, categories }: Props) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
-                className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -132,7 +132,7 @@ export default function BucketsClient({ buckets, categories }: Props) {
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">— none —</option>
                 {categories.map((c) => (
@@ -153,7 +153,7 @@ export default function BucketsClient({ buckets, categories }: Props) {
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 py-2 text-xs font-semibold text-white transition-colors"
+              className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-2 text-xs font-semibold text-white transition-colors"
             >
               {saving ? "Saving…" : "Create"}
             </button>

@@ -18,7 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
   reconciled: "bg-zinc-700 text-zinc-300",
 };
 
-export default async function ExpensesPage() {
+export default async function TransactionsPage() {
   const user = await requireUser();
 
   const allExpenses = await db
@@ -41,7 +41,7 @@ export default async function ExpensesPage() {
       <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
           <Link href="/" className="text-zinc-400 hover:text-white">‹</Link>
-          <h1 className="text-base font-semibold">Expenses</h1>
+          <h1 className="text-base font-semibold">Transactions</h1>
           <span className="ml-auto text-xs text-zinc-500">{allExpenses.length} total</span>
         </div>
       </header>
