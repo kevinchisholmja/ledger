@@ -81,7 +81,49 @@ Key facts:
 
 ---
 
-## Phase 4 — Not yet defined
+## Interlude — Terminology refactor + design direction
+**Date:** 2026-05-24 · **Status:** Complete
 
-→ `activity/phases/phase-4-name.md` — to be created when scoped  
-→ `activity/ToDo.md` — known deferred items and improvements
+Before Phase 4 work began, a housekeeping pass was done to clean up naming and
+establish a design north star.
+
+**Terminology:** "bucket" → "budget" and "expense" → "transaction" throughout the UI.
+Both are the industry-standard terms used by Copilot, Monarch, and YNAB. DB table
+names (`buckets`, `expenses`) are unchanged — the rename is UI-layer only.
+
+**Routes:** `/buckets` → `/budgets`, `/expenses` → `/transactions`,
+`/api/buckets` → `/api/budgets`.
+
+**Colours:** `indigo-*` → `blue-*` (Copilot Royal Blue as primary accent).
+Zero indigo references remain.
+
+**Design north star:** Copilot Money. Their category tab layout (horizontal progress
+bars, colour-coded by spend %, spent left + budget right) is the target for the
+dashboard budget cards. `design-reference/` holds screenshots — gitignored (22MB).
+
+**`lib/format.ts`:** `formatJMD()` and `formatCurrency()` helpers. All inline
+`J$${...}` formatting will be replaced in the P4 UI pass.
+
+→ `activity/2026/2026-05-24e.md` — full detail and decisions
+
+---
+
+## Phase 4 — buckets_summary + iOS Shortcut
+**Date:** TBD · **Status:** Scoped, not yet started
+
+Two parts that make the app fully daily-usable:
+
+**Part A — Dashboard redesign:** wire the existing `buckets_summary` Postgres view
+to the dashboard. Budget cards will show month_spent, month_remaining, year_spent,
+and a Copilot-style progress bar coloured by spend level. Currently the dashboard
+queries the `buckets` table directly and shows only the allocated amount — the view
+exists but was never wired up.
+
+**Part B — iOS Shortcut:** a second expense intake channel for quick manual entry.
+A dedicated multipart upload endpoint (`POST /api/shortcut/upload`) accepts images
+and PDFs from an iOS Shortcut, runs OCR, and stores the expense — same pipeline
+as the Telegram webhook but simpler. The Shortcut is built in the iOS Shortcuts
+app and appears in the share sheet and on the home screen.
+
+→ `activity/phases/phase-4-shortcut.md` — full scope and constraints  
+→ `activity/ToDo.md` — task breakdown
