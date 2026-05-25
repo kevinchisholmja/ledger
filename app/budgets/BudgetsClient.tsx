@@ -22,7 +22,8 @@ const PERIODS: { value: string; label: string }[] = [
 interface Props {
   budgets: Bucket[];
   categories: Category[];
-  defaultGroup?: string;
+  defaultTab?: Tab;
+  defaultCategoryId?: string;
 }
 
 const inputCls = "w-full rounded-xl bg-white border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
@@ -30,25 +31,18 @@ const selectCls = "w-full rounded-xl bg-white border border-gray-300 px-3 py-2.5
 const labelCls = "block text-xs font-medium text-gray-500 mb-1.5";
 const inlineInputCls = "rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white";
 
-export default function BudgetsClient({ budgets, categories, defaultGroup }: Props) {
+export default function BudgetsClient({ budgets, categories, defaultTab, defaultCategoryId }: Props) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("budgets");
+  const [tab, setTab] = useState<Tab>(defaultTab ?? "budgets");
+
+  const catMap = new Map(categories.map((c) => [c.id, c]));
 
   // ── Budget create form ────────────────────────────────────────────────────
-  const existingGroups = [
-    "Uncategorized",
-    ...Array.from(new Set(budgets.map((b) => b.group_name).filter((g) => g && g !== "Uncategorized"))),
-  ];
-
-  const [showBudgetForm, setShowBudgetForm] = useState(defaultGroup !== undefined);
+  const [showBudgetForm, setShowBudgetForm] = useState(defaultCategoryId !== undefined);
   const [bName, setBName] = useState("");
   const [period, setPeriod] = useState("monthly");
   const [amount, setAmount] = useState("");
-  const [groupName, setGroupName] = useState(defaultGroup ?? "Uncategorized");
-  const [groupMode, setGroupMode] = useState<"pick" | "new">(() => {
-    if (defaultGroup === undefined || defaultGroup === "") return "pick";
-    return existingGroups.includes(defaultGroup) ? "pick" : "new";
-  });
+  const [categoryId, setCategoryId] = useState(defaultCategoryId ?? "");
   const [bSaving, setBSaving] = useState(false);
 
   // ── Budget inline edit ────────────────────────────────────────────────────
@@ -56,8 +50,7 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
   const [eBName, setEBName] = useState("");
   const [ePeriod, setEPeriod] = useState("monthly");
   const [eAmount, setEAmount] = useState("");
-  const [eGroupName, setEGroupName] = useState("Uncategorized");
-  const [eGroupMode, setEGroupMode] = useState<"pick" | "new">("pick");
+  const [eCategoryId, setECategoryId] = useState("");
   const [eSaving, setESaving] = useState(false);
 
   // ── Category create form ──────────────────────────────────────────────────
@@ -80,10 +73,9 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
     await fetch("/api/budgets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: bName, period, amount: Number(amount), group_name: groupName.trim() || "Uncategorized" }),
+      body: JSON.stringify({ name: bName, period, amount: Number(amount), category_id: categoryId || null }),
     });
-    setBName(""); setAmount(""); setGroupName("Uncategorized"); setGroupMode("pick");
-    setShowBudgetForm(false); setBSaving(false);
+    setBName(""); setAmount(""); setCategoryId(""); setShowBudgetForm(false); setBSaving(false);
     router.refresh();
   }
 
@@ -92,8 +84,7 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
     setEBName(b.name);
     setEPeriod(b.period);
     setEAmount(String(b.amount));
-    setEGroupName(b.group_name ?? "Uncategorized");
-    setEGroupMode("pick");
+    setECategoryId(b.category_id ?? "");
   }
 
   async function saveBudget(id: string) {
@@ -101,7 +92,7 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
     await fetch(`/api/budgets/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: eBName, period: ePeriod, amount: Number(eAmount), group_name: eGroupName.trim() || "Uncategorized" }),
+      body: JSON.stringify({ name: eBName, period: ePeriod, amount: Number(eAmount), category_id: eCategoryId || null }),
     });
     setEditingBudgetId(null); setESaving(false);
     router.refresh();
@@ -153,12 +144,6 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
       tab === t ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
     }`;
 
-  // Groups available for inline edit dropdown
-  const allGroups = Array.from(new Set([
-    "Uncategorized",
-    ...budgets.map((b) => b.group_name).filter(Boolean),
-  ]));
-
   return (
     <div className="space-y-4">
       {/* Tabs */}
@@ -190,25 +175,17 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
                           <input value={eBName} onChange={(e) => setEBName(e.target.value)} className={inputCls} />
                         </div>
                         <div>
-                          <label className={labelCls}>Group</label>
-                          {eGroupMode === "pick" ? (
-                            <select
-                              value={allGroups.includes(eGroupName) ? eGroupName : allGroups[0]}
-                              onChange={(e) => {
-                                if (e.target.value === "__new__") { setEGroupMode("new"); setEGroupName(""); }
-                                else setEGroupName(e.target.value);
-                              }}
-                              className={selectCls}
-                            >
-                              {allGroups.map((g) => <option key={g} value={g}>{g}</option>)}
-                              <option value="__new__">＋ New group…</option>
-                            </select>
-                          ) : (
-                            <div className="flex gap-2">
-                              <input autoFocus value={eGroupName} onChange={(e) => setEGroupName(e.target.value)} placeholder="Group name" className={inputCls} />
-                              <button type="button" onClick={() => { setEGroupMode("pick"); setEGroupName(allGroups[0]); }} className="shrink-0 text-xs text-blue-600 hover:text-blue-500 whitespace-nowrap">Pick existing</button>
-                            </div>
-                          )}
+                          <label className={labelCls}>Category</label>
+                          <select
+                            value={eCategoryId}
+                            onChange={(e) => setECategoryId(e.target.value)}
+                            className={selectCls}
+                          >
+                            <option value="">— no category —</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ""}{c.name}</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className={labelCls}>Period</label>
@@ -233,7 +210,9 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
                     <div className="flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 transition-colors">
                       <div>
                         <p className="font-medium text-sm text-gray-900">{b.name}</p>
-                        <p className="text-xs text-gray-400 mt-0.5 capitalize">{b.period} · {b.group_name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5 capitalize">
+                          {b.period} · {catMap.get(b.category_id ?? "")?.name ?? "Uncategorized"}
+                        </p>
                       </div>
                       <div className="flex items-center gap-3">
                         <p className="font-semibold text-sm text-gray-900 tabular-nums">{formatJMD(b.amount)}</p>
@@ -267,28 +246,16 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
                 </div>
               </div>
               <div>
-                <label className={labelCls}>Group</label>
-                {groupMode === "pick" ? (
-                  <select
-                    value={existingGroups.includes(groupName) ? groupName : existingGroups[0]}
-                    onChange={(e) => {
-                      if (e.target.value === "__new__") { setGroupMode("new"); setGroupName(""); }
-                      else setGroupName(e.target.value);
-                    }}
-                    className={selectCls}
-                  >
-                    {existingGroups.map((g) => <option key={g} value={g}>{g}</option>)}
-                    <option value="__new__">＋ New group…</option>
-                  </select>
-                ) : (
-                  <div className="flex gap-2 items-center">
-                    <input autoFocus value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="e.g. Bills, Needs, Wants" className={inputCls} />
-                    <button type="button" onClick={() => { setGroupMode("pick"); setGroupName(existingGroups[0]); }} className="shrink-0 text-xs text-blue-600 hover:text-blue-500 transition-colors whitespace-nowrap">Pick existing</button>
-                  </div>
-                )}
+                <label className={labelCls}>Category</label>
+                <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={selectCls}>
+                  <option value="">— no category —</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ""}{c.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => { setShowBudgetForm(false); setGroupMode("pick"); setGroupName("Uncategorized"); }}
+                <button type="button" onClick={() => { setShowBudgetForm(false); setCategoryId(""); }}
                   className="flex-1 rounded-xl border border-gray-300 py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors">Cancel</button>
                 <button type="submit" disabled={bSaving}
                   className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-2.5 text-xs font-semibold text-white transition-colors">
@@ -309,13 +276,13 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
       {tab === "categories" && (
         <div className="space-y-3">
           <p className="text-xs text-gray-400">
-            Categories tag individual transactions when reviewing receipts.
+            Categories tag individual transactions when reviewing receipts, and group budgets in the plan view.
           </p>
 
           {categories.length === 0 && !showCatForm && (
             <div className="flex flex-col items-center py-10 text-center">
               <p className="text-gray-500 text-sm">No categories yet</p>
-              <p className="text-gray-400 text-xs mt-1">Add categories to classify your transactions</p>
+              <p className="text-gray-400 text-xs mt-1">Add categories to classify your transactions and budgets</p>
             </div>
           )}
 

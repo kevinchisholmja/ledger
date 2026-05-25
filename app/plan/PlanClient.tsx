@@ -172,6 +172,7 @@ export default function PlanClient({
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
           <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
           <SidebarItem href="/budgets" icon="◎" label="Budgets" />
+          <SidebarItem href="/budgets?tab=categories" icon="◈" label="Categories" />
         </nav>
         <div className="px-3 pb-5 pt-3 border-t border-white/10 space-y-2">
           <p className="px-3 text-xs text-slate-500 truncate">{userEmail}</p>
@@ -408,7 +409,7 @@ export default function PlanClient({
                       {!isCollapsed && (
                         <div className="px-4 md:px-8 py-2 border-b border-gray-100">
                           <Link
-                            href={`/budgets?group=${encodeURIComponent(group.name)}`}
+                            href={group.category_id ? `/budgets?category=${group.category_id}` : "/budgets"}
                             className="text-xs text-blue-600 hover:text-blue-500 transition-colors"
                           >
                             + Add budget to {group.name}
@@ -439,7 +440,7 @@ export default function PlanClient({
                 {/* + Add*/}
                 <div className="px-4 md:px-8 py-4">
                   <Link
-                    href="/budgets?newGroup=1"
+                    href="/budgets?tab=categories"
                     className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-500 transition-colors font-medium"
                   >
                     <span className="text-lg leading-none">+</span>

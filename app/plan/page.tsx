@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { buckets, expenses } from "@/lib/db/schema";
+import { buckets, categories, expenses } from "@/lib/db/schema";
 import { eq, and, ne, gte, lte, isNotNull, or, sql } from "drizzle-orm";
 import { BUDGET_PERIOD_DAYS } from "@/lib/period";
 import PlanClient from "./PlanClient";
@@ -15,11 +15,13 @@ export interface PlanBudget {
   activity: number;
   available: number;
   currency: string;
-  group_name: string;
+  category_name: string;
+  category_id: string | null;
 }
 
 export interface PlanGroup {
   name: string;
+  category_id: string | null;
   budgets: PlanBudget[];
   totalAssigned: number;
   totalActivity: number;
@@ -66,9 +68,20 @@ export default async function PlanPage({
   const monthLabel = formatYearMonth(yearMonth);
 
   const [userBuckets, spendingRows, pendingCount] = await Promise.all([
-    db.select().from(buckets)
-      .where(and(eq(buckets.user_id, user.id), eq(buckets.active, true)))
-      .orderBy(buckets.group_name, buckets.name),
+    db.select({
+      id: buckets.id,
+      name: buckets.name,
+      icon: buckets.icon,
+      period: buckets.period,
+      amount: buckets.amount,
+      currency: buckets.currency,
+      category_id: buckets.category_id,
+      category_name: categories.name,
+    })
+    .from(buckets)
+    .leftJoin(categories, eq(buckets.category_id, categories.id))
+    .where(and(eq(buckets.user_id, user.id), eq(buckets.active, true)))
+    .orderBy(categories.name, buckets.name),
 
     db.select({
       bucket_id: expenses.bucket_id,
@@ -109,21 +122,23 @@ export default async function PlanPage({
       activity,
       available: monthly - activity,
       currency: b.currency ?? "JMD",
-      group_name: b.group_name,
+      category_name: b.category_name ?? "Uncategorized",
+      category_id: b.category_id,
     };
   });
 
-  // Build groups preserving DB order, then alpha-sort groups
+  // Build groups by category, preserving DB order, then alpha-sort
   const groupMap = new Map<string, PlanBudget[]>();
   for (const b of planBudgets) {
-    if (!groupMap.has(b.group_name)) groupMap.set(b.group_name, []);
-    groupMap.get(b.group_name)!.push(b);
+    if (!groupMap.has(b.category_name)) groupMap.set(b.category_name, []);
+    groupMap.get(b.category_name)!.push(b);
   }
 
   const groups: PlanGroup[] = [...groupMap.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, budgets]) => ({
       name,
+      category_id: budgets[0]?.category_id ?? null,
       budgets,
       totalAssigned: budgets.reduce((s, b) => s + b.monthlyAmount, 0),
       totalActivity: budgets.reduce((s, b) => s + b.activity, 0),

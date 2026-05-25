@@ -32,10 +32,10 @@ function SidebarItem({
 export default async function BudgetsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ group?: string; newGroup?: string }>;
+  searchParams: Promise<{ tab?: string; category?: string }>;
 }) {
   const user = await requireUser();
-  const { group, newGroup } = await searchParams;
+  const { tab, category } = await searchParams;
 
   const [allBuckets, allCategories, pendingCount] = await Promise.all([
     db.select().from(buckets).where(eq(buckets.user_id, user.id)).orderBy(buckets.name),
@@ -46,7 +46,8 @@ export default async function BudgetsPage({
       .then((r) => r[0]?.count ?? 0),
   ]);
 
-  const defaultGroup = group ?? (newGroup ? "" : undefined);
+  const defaultTab = tab === "categories" ? "categories" as const : undefined;
+  const defaultCategoryId = category;
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900">
@@ -68,7 +69,8 @@ export default async function BudgetsPage({
           <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
           <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
-          <SidebarItem href="/budgets" icon="◎" label="Budgets" active />
+          <SidebarItem href="/budgets" icon="◎" label="Budgets" active={tab !== "categories"} />
+          <SidebarItem href="/budgets?tab=categories" icon="◈" label="Categories" active={tab === "categories"} />
         </nav>
         <div className="px-3 pb-5 pt-3 border-t border-white/10 space-y-2">
           <p className="px-3 text-xs text-slate-500 truncate">{user.email}</p>
@@ -91,7 +93,7 @@ export default async function BudgetsPage({
         </div>
 
         <main className="px-4 md:px-8 py-6 pb-24 max-w-2xl">
-          <BudgetsClient budgets={allBuckets} categories={allCategories} defaultGroup={defaultGroup} />
+          <BudgetsClient budgets={allBuckets} categories={allCategories} defaultTab={defaultTab} defaultCategoryId={defaultCategoryId} />
         </main>
       </div>
     </div>
