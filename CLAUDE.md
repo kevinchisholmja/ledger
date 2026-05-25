@@ -39,3 +39,13 @@
 - `buckets_summary` is a Postgres view with `security_invoker = true`. Drizzle service-role queries bypass RLS regardless — always add `WHERE user_id = X`.
 - `pending_ocr` and `pending_review` expenses both need to appear in the review queue. `pending_ocr` items should show a "retry OCR" action.
 - Confirming an expense must set both `confirmed_category` (text) AND `category_id` (UUID FK) — `buckets_summary` aggregates on `category_id`, not on `confirmed_category`.
+- Confirming an expense should also set `bucket_id` — this is how `buckets_summary` counts month_spent. Without it all budget cards show $0.
+
+## Phase 4 additions (P4 — 2026-05-24)
+
+- `buckets_summary` is now wired to `app/page.tsx`. Use `db.execute(sql\`...\`)` — it's a view, not a Drizzle table. Returns Postgres numeric values as strings — always wrap with `Number()`.
+- `expenses.bucket_id` (UUID FK → buckets) was added to the Drizzle schema. The PATCH route at `app/api/expenses/[id]/route.ts` now accepts `bucket_id`.
+- ReviewCard now has a Budget dropdown — it saves `bucket_id` alongside `category_id` when confirming.
+- iOS Shortcut endpoint: `POST /api/shortcut/upload` — multipart form-data, auth via `x-shortcut-secret` header matching `SHORTCUT_SECRET` env var. Source = `shortcut`.
+- `docs/ios-shortcut.md` — step-by-step Shortcut setup guide.
+- Dashboard budget cards sort by spend % descending (over-budget first). Colors: blue < 80%, amber 80–99%, red 100%+.

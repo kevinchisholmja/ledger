@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { expenses, categories } from "@/lib/db/schema";
+import { expenses, categories, buckets } from "@/lib/db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
 import ReviewCard from "./ReviewCard";
 
 export default async function ReviewPage() {
   const user = await requireUser();
 
-  const [pending, userCategories] = await Promise.all([
+  const [pending, userCategories, userBuckets] = await Promise.all([
     db
       .select()
       .from(expenses)
@@ -28,6 +28,12 @@ export default async function ReviewPage() {
       .from(categories)
       .where(eq(categories.user_id, user.id))
       .orderBy(categories.name),
+
+    db
+      .select({ id: buckets.id, name: buckets.name })
+      .from(buckets)
+      .where(and(eq(buckets.user_id, user.id), eq(buckets.active, true)))
+      .orderBy(buckets.name),
   ]);
 
   return (
@@ -61,6 +67,7 @@ export default async function ReviewPage() {
                 key={expense.id}
                 expense={expense}
                 categories={userCategories}
+                budgets={userBuckets}
               />
             ))}
           </div>

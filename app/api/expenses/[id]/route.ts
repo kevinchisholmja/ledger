@@ -18,6 +18,7 @@ export async function PATCH(
     "amount",
     "currency",
     "date",
+    "bucket_id",
     "confirmed_category",
     "category_id",
     "notes",

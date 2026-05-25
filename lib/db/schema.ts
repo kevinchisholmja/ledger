@@ -6,7 +6,6 @@ import {
   numeric,
   timestamp,
   boolean,
-  integer,
 } from "drizzle-orm/pg-core";
 
 // ── Enums ────────────────────────────────────────────────────────────────────
@@ -46,6 +45,7 @@ export const categories = pgTable("categories", {
   user_id: uuid("user_id").notNull(),
   name: text("name").notNull(),
   icon: text("icon"),
+  bucket_id: uuid("bucket_id"), // FK set after buckets is defined — see below
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -55,6 +55,10 @@ export const buckets = pgTable("buckets", {
   name: text("name").notNull(),
   period: budgetPeriodEnum("period").notNull(),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  color: text("color"),
+  icon: text("icon"),
+  currency: text("currency").notNull().default("JMD"),
+  active: boolean("active").notNull().default(true),
   category_id: uuid("category_id").references(() => categories.id),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
@@ -71,6 +75,7 @@ export const expenses = pgTable("expenses", {
   amount: numeric("amount", { precision: 12, scale: 2 }), // nullable — migration 20240004
   currency: text("currency").notNull().default("JMD"),
   date: text("date").notNull(),
+  bucket_id: uuid("bucket_id").references(() => buckets.id),
   ai_suggested_category: text("ai_suggested_category"),
   confirmed_category: text("confirmed_category"),
   category_id: uuid("category_id").references(() => categories.id),

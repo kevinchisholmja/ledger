@@ -4,25 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Expense, Category } from "@/lib/db/schema";
 
-const CATEGORIES = [
-  "Food & Drink",
-  "Groceries",
-  "Transport",
-  "Utilities",
-  "Shopping",
-  "Health",
-  "Entertainment",
-  "Travel",
-  "Business",
-  "Other",
-];
+interface BudgetOption {
+  id: string;
+  name: string;
+}
 
 interface Props {
   expense: Expense;
   categories: Category[];
+  budgets: BudgetOption[];
 }
 
-export default function ReviewCard({ expense, categories }: Props) {
+export default function ReviewCard({ expense, categories, budgets }: Props) {
   const router = useRouter();
   const [merchant, setMerchant] = useState(expense.merchant ?? "");
   const [amount, setAmount] = useState(expense.amount ?? "");
@@ -31,6 +24,7 @@ export default function ReviewCard({ expense, categories }: Props) {
   const [category, setCategory] = useState(
     expense.confirmed_category ?? expense.ai_suggested_category ?? ""
   );
+  const [budgetId, setBudgetId] = useState(expense.bucket_id ?? "");
   const [saving, setSaving] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
@@ -50,6 +44,7 @@ export default function ReviewCard({ expense, categories }: Props) {
         amount: amount !== "" ? Number(amount) : null,
         currency,
         date,
+        bucket_id: budgetId || null,
         confirmed_category: category || null,
         category_id: matchedCat?.id ?? null,
         status: nextStatus,
@@ -159,8 +154,22 @@ export default function ReviewCard({ expense, categories }: Props) {
               className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">— pick one —</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-xs text-zinc-400 mb-1">Budget</label>
+            <select
+              value={budgetId}
+              onChange={(e) => setBudgetId(e.target.value)}
+              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— no budget —</option>
+              {budgets.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>
           </div>

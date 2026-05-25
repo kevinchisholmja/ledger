@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { expenses } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { formatCurrency } from "@/lib/format";
 
 const STATUS_LABELS: Record<string, string> = {
   pending_ocr: "OCR pending",
@@ -71,7 +72,7 @@ export default async function TransactionsPage() {
                     </span>
                     {dayTotal > 0 && (
                       <span className="text-xs text-zinc-500">
-                        J${dayTotal.toLocaleString()}
+                        {formatCurrency(dayTotal, "JMD")}
                       </span>
                     )}
                   </div>
@@ -98,9 +99,7 @@ export default async function TransactionsPage() {
                         <div className="ml-4 text-right shrink-0">
                           {e.amount != null ? (
                             <p className="font-semibold text-sm">
-                              {e.currency === "JMD"
-                                ? `J$${Number(e.amount).toLocaleString()}`
-                                : `${e.currency} ${e.amount}`}
+                              {formatCurrency(e.amount, e.currency)}
                             </p>
                           ) : (
                             <span className="text-xs text-zinc-500">—</span>

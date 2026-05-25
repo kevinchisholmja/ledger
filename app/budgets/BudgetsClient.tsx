@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Bucket, Category } from "@/lib/db/schema";
+import { formatJMD } from "@/lib/format";
 
 const PERIODS = ["weekly", "fortnightly", "monthly", "quarterly", "annual"] as const;
 
@@ -64,11 +65,7 @@ export default function BudgetsClient({ budgets, categories }: Props) {
           </div>
           <div className="flex items-center gap-3">
             <p className="font-semibold text-sm">
-              {Number(b.amount).toLocaleString("en-JM", {
-                style: "currency",
-                currency: "JMD",
-                maximumFractionDigits: 0,
-              })}
+              {formatJMD(b.amount)}
             </p>
             <button
               onClick={() => deleteBudget(b.id)}
