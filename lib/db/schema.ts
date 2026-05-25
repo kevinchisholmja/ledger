@@ -63,6 +63,7 @@ export const buckets = pgTable("buckets", {
   icon: text("icon"),
   currency: text("currency").notNull().default("JMD"),
   active: boolean("active").notNull().default(true),
+  group_name: text("group_name").notNull().default("Uncategorized"),
   category_id: uuid("category_id").references(() => categories.id),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),

@@ -20,19 +20,21 @@ const PERIODS: { value: string; label: string }[] = [
 interface Props {
   budgets: Bucket[];
   categories: Category[];
+  defaultGroup?: string;
 }
 
 const inputCls = "w-full rounded-xl bg-white border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
 const selectCls = "w-full rounded-xl bg-white border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
 const labelCls = "block text-xs font-medium text-gray-500 mb-1.5";
 
-export default function BudgetsClient({ budgets, categories }: Props) {
+export default function BudgetsClient({ budgets, categories, defaultGroup }: Props) {
   const router = useRouter();
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(!!defaultGroup);
   const [name, setName] = useState("");
   const [period, setPeriod] = useState("monthly");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [groupName, setGroupName] = useState(defaultGroup ?? "Uncategorized");
   const [saving, setSaving] = useState(false);
 
   async function createBudget(e: React.FormEvent) {
@@ -41,7 +43,13 @@ export default function BudgetsClient({ budgets, categories }: Props) {
     await fetch("/api/budgets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, period, amount: Number(amount), category_id: categoryId || null }),
+      body: JSON.stringify({
+        name,
+        period,
+        amount: Number(amount),
+        category_id: categoryId || null,
+        group_name: groupName.trim() || "Uncategorized",
+      }),
     });
     setName(""); setAmount(""); setCategoryId(""); setShowForm(false); setSaving(false);
     router.refresh();
@@ -68,7 +76,9 @@ export default function BudgetsClient({ budgets, categories }: Props) {
             <div key={b.id} className="flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 transition-colors">
               <div>
                 <p className="font-medium text-sm text-gray-900">{b.name}</p>
-                <p className="text-xs text-gray-400 mt-0.5 capitalize">{b.period}</p>
+                <p className="text-xs text-gray-400 mt-0.5 capitalize">
+                  {b.period} · {b.group_name}
+                </p>
               </div>
               <div className="flex items-center gap-4">
                 <p className="font-semibold text-sm text-gray-900 tabular-nums">{formatJMD(b.amount)}</p>
@@ -104,6 +114,11 @@ export default function BudgetsClient({ budgets, categories }: Props) {
               <label className={labelCls}>Amount (JMD)</label>
               <input required type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={inputCls} />
             </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Group</label>
+            <input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="e.g. Bills, Needs, Wants" className={inputCls} />
           </div>
 
           {categories.length > 0 && (

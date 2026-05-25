@@ -12,7 +12,7 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json();
 
-  const allowed = ["name", "period", "amount", "category_id"] as const;
+  const allowed = ["name", "period", "amount", "category_id", "group_name"] as const;
   const patch: Partial<NewBucket> = {};
   for (const key of allowed) {
     if (key in body) (patch as Record<string, unknown>)[key] = body[key];

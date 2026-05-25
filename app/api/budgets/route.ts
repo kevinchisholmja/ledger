@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const user = await requireUser();
   const body = await req.json();
 
-  const { name, period, amount, category_id } = body;
+  const { name, period, amount, category_id, group_name } = body;
   if (!name || !period || amount == null) {
     return NextResponse.json({ error: "name, period, amount required" }, { status: 400 });
   }
@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       period,
       amount: String(amount),
       category_id: category_id ?? null,
+      group_name: group_name ?? "Uncategorized",
     })
     .returning();
 
