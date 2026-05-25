@@ -28,17 +28,36 @@ function barColor(pct: number) {
   return "bg-blue-500";
 }
 
+// YNAB-style available pill
+function AvailablePill({ remaining, allocated }: { remaining: number; allocated: number; currency: string }) {
+  const over = remaining < 0;
+  const close = !over && allocated > 0 && remaining < allocated * 0.2;
+
+  if (over) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 tabular-nums">
+        −{formatCurrency(Math.abs(remaining), "JMD")}
+      </span>
+    );
+  }
+  if (close) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 tabular-nums">
+        {formatCurrency(remaining, "JMD")}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 tabular-nums">
+      {formatCurrency(remaining, "JMD")}
+    </span>
+  );
+}
+
 function categoryIcon(cat: string | null | undefined): string {
   const map: Record<string, string> = {
-    "Food & Drink": "🍽️",
-    Groceries: "🛒",
-    Transport: "🚗",
-    Utilities: "⚡",
-    Shopping: "🛍️",
-    Health: "💊",
-    Entertainment: "🎬",
-    Travel: "✈️",
-    Business: "💼",
+    "Food & Drink": "🍽️", Groceries: "🛒", Transport: "🚗", Utilities: "⚡",
+    Shopping: "🛍️", Health: "💊", Entertainment: "🎬", Travel: "✈️", Business: "💼",
   };
   return map[cat ?? ""] ?? "💳";
 }
@@ -47,44 +66,24 @@ export default async function DashboardPage() {
   const user = await requireUser();
 
   const [recentExpenses, pendingCount, budgetSummaries] = await Promise.all([
-    db
-      .select()
-      .from(expenses)
-      .where(eq(expenses.user_id, user.id))
-      .orderBy(desc(expenses.created_at))
-      .limit(8),
+    db.select().from(expenses).where(eq(expenses.user_id, user.id))
+      .orderBy(desc(expenses.created_at)).limit(8),
 
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(expenses)
-      .where(
-        and(
-          eq(expenses.user_id, user.id),
-          or(eq(expenses.status, "pending_review"), eq(expenses.status, "pending_ocr"))
-        )
-      )
+    db.select({ count: sql<number>`count(*)::int` }).from(expenses)
+      .where(and(eq(expenses.user_id, user.id), or(eq(expenses.status, "pending_review"), eq(expenses.status, "pending_ocr"))))
       .then((r) => r[0]?.count ?? 0),
 
-    db
-      .execute(
-        sql`SELECT * FROM buckets_summary WHERE user_id = ${user.id} ORDER BY (month_spent::numeric / NULLIF(amount::numeric, 0)) DESC NULLS LAST`
-      )
+    db.execute(sql`SELECT * FROM buckets_summary WHERE user_id = ${user.id} ORDER BY (month_spent::numeric / NULLIF(amount::numeric, 0)) DESC NULLS LAST`)
       .then((r) => r as unknown as BucketSummaryRow[]),
   ]);
 
   const firstName =
     (user.user_metadata?.full_name as string | undefined)?.split(" ")[0] ??
     (user.user_metadata?.name as string | undefined)?.split(" ")[0] ??
-    user.email?.split("@")[0] ??
-    "there";
+    user.email?.split("@")[0] ?? "there";
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString("en-JM", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const dateStr = now.toLocaleDateString("en-JM", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const monthName = now.toLocaleDateString("en-JM", { month: "long" });
 
   const totalBudget = budgetSummaries.reduce((s, b) => s + Number(b.amount), 0);
@@ -95,17 +94,19 @@ export default async function DashboardPage() {
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900">
 
-      {/* ── Sidebar (desktop) ─────────────────────────────────────────────── */}
-      <aside className="hidden md:flex w-56 flex-col fixed inset-y-0 border-r border-gray-200 bg-white z-20">
+      {/* ── Sidebar — dark navy (YNAB-style) ──────────────────────────────── */}
+      <aside className="hidden md:flex w-56 flex-col fixed inset-y-0 bg-[#1B1F3B] z-20">
+        {/* Logo */}
         <div className="px-5 py-5">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow shadow-blue-600/30">
+            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-sm">L</span>
             </div>
-            <span className="font-semibold text-gray-900 tracking-tight">Ledger</span>
+            <span className="font-semibold text-white tracking-tight">Ledger</span>
           </div>
         </div>
 
+        {/* Nav */}
         <nav className="flex-1 px-3 py-2 space-y-0.5">
           <SidebarItem href="/" icon="⊞" label="Dashboard" active />
           <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
@@ -113,8 +114,9 @@ export default async function DashboardPage() {
           <SidebarItem href="/budgets" icon="◎" label="Budgets" />
         </nav>
 
-        <div className="px-3 pb-5 pt-3 border-t border-gray-200 space-y-2">
-          <p className="px-3 text-xs text-gray-400 truncate">{user.email}</p>
+        {/* Footer */}
+        <div className="px-3 pb-5 pt-3 border-t border-white/10 space-y-2">
+          <p className="px-3 text-xs text-slate-500 truncate">{user.email}</p>
           <div className="px-3">
             <LogoutButton />
           </div>
@@ -132,14 +134,9 @@ export default async function DashboardPage() {
             </div>
             <span className="font-semibold text-gray-900 tracking-tight">Ledger</span>
           </div>
-          <Link
-            href="/review"
-            className="relative p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-          >
+          <Link href="/review" className="relative p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
             <span className="text-lg">✓</span>
-            {pendingCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
-            )}
+            {pendingCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />}
           </Link>
         </header>
 
@@ -153,10 +150,8 @@ export default async function DashboardPage() {
 
           {/* Pending banner */}
           {pendingCount > 0 && (
-            <Link
-              href="/review"
-              className="flex items-center justify-between rounded-2xl bg-blue-50 border border-blue-200 px-5 py-4 mb-7 hover:bg-blue-100 transition-colors group"
-            >
+            <Link href="/review"
+              className="flex items-center justify-between rounded-2xl bg-blue-50 border border-blue-200 px-5 py-4 mb-7 hover:bg-blue-100 transition-colors group">
               <div>
                 <p className="font-semibold text-blue-700">
                   {pendingCount} {pendingCount === 1 ? "transaction" : "transactions"} to review
@@ -178,27 +173,27 @@ export default async function DashboardPage() {
                 <p className="text-xs text-gray-400 mt-0.5">{monthName}</p>
               </div>
               <div className="rounded-2xl bg-white border border-gray-200 shadow-sm px-4 py-4">
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Spent</p>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Activity</p>
                 <p className={`text-lg md:text-xl font-bold mt-1 tabular-nums ${overallPct >= 100 ? "text-red-500" : "text-gray-900"}`}>
                   {formatCurrency(totalSpent, "JMD")}
                 </p>
                 <p className={`text-xs mt-0.5 ${overallPct >= 100 ? "text-red-500" : overallPct >= 80 ? "text-amber-500" : "text-emerald-500"}`}>
-                  {overallPct.toFixed(0)}% of budget
+                  {overallPct.toFixed(0)}% used
                 </p>
               </div>
               <div className="rounded-2xl bg-white border border-gray-200 shadow-sm px-4 py-4">
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">
-                  {totalRemaining >= 0 ? "Remaining" : "Over by"}
-                </p>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Available</p>
                 <p className={`text-lg md:text-xl font-bold mt-1 tabular-nums ${totalRemaining < 0 ? "text-red-500" : "text-gray-900"}`}>
                   {formatCurrency(Math.abs(totalRemaining), "JMD")}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{monthName}</p>
+                <p className={`text-xs mt-0.5 ${totalRemaining < 0 ? "text-red-500" : "text-emerald-500"}`}>
+                  {totalRemaining < 0 ? "over budget" : "remaining"}
+                </p>
               </div>
             </div>
           )}
 
-          {/* Budget list — Copilot style */}
+          {/* Budget list */}
           {budgetSummaries.length > 0 ? (
             <section className="mb-8">
               <div className="flex items-center justify-between mb-3">
@@ -208,12 +203,12 @@ export default async function DashboardPage() {
                 </Link>
               </div>
 
-              {/* Column headers — desktop only */}
-              <div className="hidden md:flex items-center px-4 mb-1 gap-4">
-                <div className="flex-1" />
-                <span className="w-32 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Spent</span>
-                <div className="w-40" />
-                <span className="w-32 text-xs font-semibold uppercase tracking-wider text-gray-400">Budget</span>
+              {/* Desktop column headers — YNAB style */}
+              <div className="hidden md:grid px-4 mb-1" style={{ gridTemplateColumns: "1fr 100px 1fr 110px" }}>
+                <span />
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right">Assigned</span>
+                <span />
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right">Available</span>
               </div>
 
               <div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">
@@ -226,57 +221,59 @@ export default async function DashboardPage() {
                   const cur = b.currency ?? "JMD";
 
                   return (
-                    <div key={b.bucket_id} className="px-4 py-3.5 hover:bg-gray-50 transition-colors">
+                    <div key={b.bucket_id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
                       {/* Mobile */}
                       <div className="md:hidden">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            {b.icon ? (
-                              <span className="text-lg shrink-0">{b.icon}</span>
-                            ) : (
-                              <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                                <span className="text-gray-500 text-xs font-bold">{b.bucket_name[0]}</span>
-                              </div>
-                            )}
+                            {b.icon
+                              ? <span className="text-lg shrink-0">{b.icon}</span>
+                              : <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                                  <span className="text-gray-500 text-xs font-bold">{b.bucket_name[0]}</span>
+                                </div>
+                            }
                             <span className="text-sm font-medium text-gray-900 truncate">{b.bucket_name}</span>
                           </div>
-                          <span className={`text-xs font-medium shrink-0 ml-2 ${over ? "text-red-500" : remaining < allocated * 0.2 ? "text-amber-500" : "text-gray-400"}`}>
-                            {over ? `${formatCurrency(Math.abs(remaining), cur)} over` : `${formatCurrency(remaining, cur)} left`}
-                          </span>
+                          <AvailablePill remaining={remaining} allocated={allocated} currency={cur} />
                         </div>
                         <div className="h-1.5 rounded-full bg-gray-100 mb-1.5">
                           <div className={`h-full rounded-full ${barColor(over ? 100 : pct)}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                         </div>
                         <div className="flex justify-between text-xs text-gray-400">
-                          <span>{formatCurrency(spent, cur)}</span>
+                          <span>{formatCurrency(spent, cur)} spent</span>
                           <span>of {formatCurrency(allocated, cur)}</span>
                         </div>
                       </div>
 
-                      {/* Desktop — Copilot: icon+name | spent | bar | budget */}
-                      <div className="hidden md:flex items-center gap-4">
-                        <div className="flex-1 flex items-center gap-3 min-w-0">
-                          {b.icon ? (
-                            <span className="text-xl w-8 text-center shrink-0">{b.icon}</span>
-                          ) : (
-                            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                              <span className="text-gray-500 text-xs font-bold">{b.bucket_name[0]}</span>
-                            </div>
-                          )}
+                      {/* Desktop — YNAB: name | assigned | bar | available pill */}
+                      <div className="hidden md:grid items-center gap-x-4" style={{ gridTemplateColumns: "1fr 100px 1fr 110px" }}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          {b.icon
+                            ? <span className="text-xl w-8 text-center shrink-0">{b.icon}</span>
+                            : <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                                <span className="text-gray-500 text-xs font-bold">{b.bucket_name[0]}</span>
+                              </div>
+                          }
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">{b.bucket_name}</p>
                             <p className="text-xs text-gray-400 capitalize">{b.period}</p>
                           </div>
                         </div>
-                        <span className={`w-32 text-right text-sm font-semibold tabular-nums shrink-0 ${over ? "text-red-500" : "text-gray-900"}`}>
-                          {formatCurrency(spent, cur)}
-                        </span>
-                        <div className="w-40 h-2 rounded-full bg-gray-100 shrink-0">
-                          <div className={`h-full rounded-full ${barColor(over ? 100 : pct)}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                        </div>
-                        <span className="w-32 text-sm text-gray-400 tabular-nums shrink-0">
+
+                        {/* Assigned */}
+                        <span className="text-sm text-gray-500 tabular-nums text-right">
                           {formatCurrency(allocated, cur)}
                         </span>
+
+                        {/* Progress bar */}
+                        <div className="h-2 rounded-full bg-gray-100">
+                          <div className={`h-full rounded-full ${barColor(over ? 100 : pct)}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                        </div>
+
+                        {/* Available pill */}
+                        <div className="flex justify-end">
+                          <AvailablePill remaining={remaining} allocated={allocated} currency={cur} />
+                        </div>
                       </div>
                     </div>
                   );
@@ -287,7 +284,8 @@ export default async function DashboardPage() {
             <div className="rounded-2xl bg-white border border-gray-200 border-dashed px-6 py-12 text-center mb-8">
               <p className="text-gray-500 font-medium">No budgets yet</p>
               <p className="text-gray-400 text-sm mt-1.5">Create a budget to start tracking your spending</p>
-              <Link href="/budgets" className="inline-block mt-5 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-sm font-medium text-white transition-colors">
+              <Link href="/budgets"
+                className="inline-block mt-5 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-sm font-medium text-white transition-colors">
                 Create budget
               </Link>
             </div>
@@ -297,9 +295,7 @@ export default async function DashboardPage() {
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-gray-900">Recent</h2>
-              <Link href="/transactions" className="text-xs text-blue-600 hover:text-blue-500 transition-colors">
-                See all →
-              </Link>
+              <Link href="/transactions" className="text-xs text-blue-600 hover:text-blue-500 transition-colors">See all →</Link>
             </div>
 
             {recentExpenses.length === 0 ? (
@@ -367,16 +363,14 @@ function SidebarItem({ href, icon, label, active, badge }: {
   href: string; icon: string; label: string; active?: boolean; badge?: number;
 }) {
   return (
-    <Link
-      href={href}
+    <Link href={href}
       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-        active ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-      }`}
-    >
+        active ? "bg-white/15 text-white" : "text-slate-400 hover:text-white hover:bg-white/10"
+      }`}>
       <span className="shrink-0 text-base">{icon}</span>
       <span className="flex-1">{label}</span>
       {badge !== undefined && (
-        <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-4">
+        <span className="text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-4">
           {badge}
         </span>
       )}
@@ -388,12 +382,10 @@ function MobileNavItem({ href, icon, label, active, badge }: {
   href: string; icon: string; label: string; active?: boolean; badge?: boolean;
 }) {
   return (
-    <Link
-      href={href}
+    <Link href={href}
       className={`flex-1 flex flex-col items-center py-2.5 text-xs gap-1 relative transition-colors ${
         active ? "text-blue-600" : "text-gray-400 hover:text-gray-700"
-      }`}
-    >
+      }`}>
       <span className="text-lg">{icon}</span>
       {label}
       {badge && <span className="absolute top-2 left-1/2 translate-x-1 w-2 h-2 bg-blue-500 rounded-full" />}
