@@ -13,10 +13,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending_ocr: "bg-amber-500/20 text-amber-300",
-  pending_review: "bg-blue-500/20 text-blue-300",
-  confirmed: "bg-green-500/20 text-green-300",
-  reconciled: "bg-zinc-700 text-zinc-300",
+  pending_ocr: "bg-amber-50 border border-amber-200 text-amber-600",
+  pending_review: "bg-blue-50 border border-blue-200 text-blue-600",
+  confirmed: "bg-emerald-50 border border-emerald-200 text-emerald-600",
+  reconciled: "bg-gray-100 text-gray-500",
 };
 
 export default async function TransactionsPage() {
@@ -28,30 +28,28 @@ export default async function TransactionsPage() {
     .where(eq(expenses.user_id, user.id))
     .orderBy(desc(expenses.date), desc(expenses.created_at));
 
-  // Group by date
   const byDate = new Map<string, typeof allExpenses>();
   for (const e of allExpenses) {
-    const key = e.date;
-    if (!byDate.has(key)) byDate.set(key, []);
-    byDate.get(key)!.push(e);
+    if (!byDate.has(e.date)) byDate.set(e.date, []);
+    byDate.get(e.date)!.push(e);
   }
   const groups = [...byDate.entries()];
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white pb-24">
-      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
-          <Link href="/" className="text-zinc-400 hover:text-white">‹</Link>
-          <h1 className="text-base font-semibold">Transactions</h1>
-          <span className="ml-auto text-xs text-zinc-500">{allExpenses.length} total</span>
+          <Link href="/" className="text-gray-400 hover:text-gray-700 transition-colors text-lg">‹</Link>
+          <h1 className="text-base font-semibold text-gray-900">Transactions</h1>
+          <span className="ml-auto text-xs text-gray-400">{allExpenses.length} total</span>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-4">
         {groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-zinc-400 text-sm">No expenses yet</p>
-            <p className="text-zinc-500 text-xs mt-1">Send a receipt to your Telegram bot to get started</p>
+            <p className="text-gray-500 text-sm">No transactions yet</p>
+            <p className="text-gray-400 text-xs mt-1">Send a receipt to your Telegram bot to get started</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -62,35 +60,31 @@ export default async function TransactionsPage() {
 
               return (
                 <div key={date}>
-                  <div className="flex items-baseline justify-between mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  <div className="flex items-baseline justify-between mb-2 px-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                       {new Date(date + "T12:00:00").toLocaleDateString("en-JM", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
+                        weekday: "short", month: "short", day: "numeric",
                       })}
                     </span>
                     {dayTotal > 0 && (
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-gray-400 tabular-nums">
                         {formatCurrency(dayTotal, "JMD")}
                       </span>
                     )}
                   </div>
-                  <ul className="space-y-2">
+                  <ul className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">
                     {items.map((e) => (
-                      <li key={e.id} className="flex items-center justify-between rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3">
+                      <li key={e.id} className="flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 transition-colors">
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">
+                          <p className="font-medium text-sm text-gray-900 truncate">
                             {e.merchant ?? e.raw_ocr_text?.slice(0, 40) ?? "—"}
                           </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span
-                              className={`text-xs px-1.5 py-0.5 rounded-full ${STATUS_COLORS[e.status] ?? "bg-zinc-700 text-zinc-300"}`}
-                            >
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[e.status] ?? "bg-gray-100 text-gray-500"}`}>
                               {STATUS_LABELS[e.status] ?? e.status}
                             </span>
                             {(e.confirmed_category ?? e.ai_suggested_category) && (
-                              <span className="text-xs text-zinc-500">
+                              <span className="text-xs text-gray-400">
                                 {e.confirmed_category ?? e.ai_suggested_category}
                               </span>
                             )}
@@ -98,11 +92,11 @@ export default async function TransactionsPage() {
                         </div>
                         <div className="ml-4 text-right shrink-0">
                           {e.amount != null ? (
-                            <p className="font-semibold text-sm">
+                            <p className="font-semibold text-sm text-gray-900 tabular-nums">
                               {formatCurrency(e.amount, e.currency)}
                             </p>
                           ) : (
-                            <span className="text-xs text-zinc-500">—</span>
+                            <span className="text-xs text-gray-400">—</span>
                           )}
                         </div>
                       </li>
