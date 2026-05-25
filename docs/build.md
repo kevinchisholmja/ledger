@@ -77,7 +77,7 @@ Key facts:
 → `activity/phases/phase-3-dashboard.md` — full scope and decisions  
 → `activity/2026/2026-05-24b.md` — day-level detail and bug log  
 → `docs/architecture.md` — system design and data flow  
-→ `docs/runbook.md` — deployment and operations
+→ `docs/runbook/` — deployment and operations
 
 ---
 
