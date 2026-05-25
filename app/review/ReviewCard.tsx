@@ -17,7 +17,10 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
   const [amount, setAmount] = useState(expense.amount ?? "");
   const [currency, setCurrency] = useState(expense.currency ?? "JMD");
   const [date, setDate] = useState(expense.date ?? "");
-  const [category, setCategory] = useState(expense.confirmed_category ?? expense.ai_suggested_category ?? "");
+  const [category, setCategory] = useState(expense.confirmed_category ?? "");
+  const suggestion = !expense.confirmed_category && expense.ai_suggested_category
+    ? expense.ai_suggested_category
+    : null;
   const [budgetId, setBudgetId] = useState(expense.bucket_id ?? "");
   const [saving, setSaving] = useState(false);
   const [retrying, setRetrying] = useState(false);
@@ -117,6 +120,17 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
             <datalist id="cat-suggestions">
               {categories.map((c) => <option key={c.id} value={c.name} />)}
             </datalist>
+            {suggestion && !category && (
+              <button
+                type="button"
+                onClick={() => setCategory(suggestion)}
+                className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-500 transition-colors"
+              >
+                <span className="text-blue-400">✦</span>
+                Suggested: <span className="font-medium">{suggestion}</span>
+                <span className="text-blue-300 text-xs">— tap to accept</span>
+              </button>
+            )}
           </div>
           <div className="col-span-2">
             <label className={labelCls}>Budget</label>

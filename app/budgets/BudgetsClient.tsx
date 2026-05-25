@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Bucket, Category } from "@/lib/db/schema";
 import { formatJMD } from "@/lib/format";
 
-type Tab = "budgets" | "labels";
+type Tab = "budgets" | "categories";
 
 const PERIODS: { value: string; label: string }[] = [
   { value: "weekly",       label: "Weekly" },
@@ -32,6 +32,7 @@ const labelCls = "block text-xs font-medium text-gray-500 mb-1.5";
 export default function BudgetsClient({ budgets, categories, defaultGroup }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("budgets");
+
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
 
   // Distinct group names derived from existing budgets
@@ -114,7 +115,7 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
         <button className={tabCls("budgets")} onClick={() => setTab("budgets")}>Budgets</button>
-        <button className={tabCls("labels")} onClick={() => setTab("labels")}>Labels</button>
+        <button className={tabCls("categories")} onClick={() => setTab("categories")}>Categories</button>
       </div>
 
       {/* ── Budgets tab ── */}
@@ -169,7 +170,7 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
                 </div>
               </div>
               <div>
-                <label className={labelCls}>Category</label>
+                <label className={labelCls}>Group</label>
                 {groupMode === "pick" ? (
                   <select
                     value={existingGroups.includes(groupName) ? groupName : existingGroups[0]}
@@ -207,17 +208,6 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
                   </div>
                 )}
               </div>
-              {categories.length > 0 && (
-                <div>
-                  <label className={labelCls}>Label (optional)</label>
-                  <select value={selectedCategoryId} onChange={(e) => setSelectedCategoryId(e.target.value)} className={selectCls}>
-                    <option value="">— None —</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ""}{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => { setShowBudgetForm(false); setSelectedCategoryId(""); setGroupMode("pick"); setGroupName("Uncategorized"); }}
                   className="flex-1 rounded-xl border border-gray-300 py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors">
@@ -238,17 +228,17 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
         </div>
       )}
 
-      {/* ── Labels tab ── */}
-      {tab === "labels" && (
+      {/* ── Categories tab ── */}
+      {tab === "categories" && (
         <div className="space-y-3">
           <p className="text-xs text-gray-400">
-            Labels tag individual transactions when reviewing receipts.
+            Categories tag individual transactions when reviewing receipts.
           </p>
 
           {categories.length === 0 && !showCatForm && (
             <div className="flex flex-col items-center py-10 text-center">
-              <p className="text-gray-500 text-sm">No labels yet</p>
-              <p className="text-gray-400 text-xs mt-1">Add labels to classify your transactions</p>
+              <p className="text-gray-500 text-sm">No categories yet</p>
+              <p className="text-gray-400 text-xs mt-1">Add categories to classify your transactions</p>
             </div>
           )}
 
@@ -276,7 +266,7 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
 
           {showCatForm ? (
             <form onSubmit={createCategory} className="rounded-2xl bg-white border border-blue-200 shadow-sm p-4 space-y-3">
-              <p className="text-sm font-semibold text-gray-900">New label</p>
+              <p className="text-sm font-semibold text-gray-900">New category</p>
               <div className="grid grid-cols-4 gap-3">
                 <div className="col-span-1">
                   <label className={labelCls}>Icon</label>
@@ -301,7 +291,7 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
           ) : (
             <button onClick={() => setShowCatForm(true)}
               className="w-full rounded-2xl border border-dashed border-gray-300 py-3.5 text-sm text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors bg-white">
-              + Add label
+              + Add category
             </button>
           )}
         </div>
