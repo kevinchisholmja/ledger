@@ -494,7 +494,7 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
           <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
           <SidebarItem href="/budgets" icon="◎" label="Budgets" />
-          <SidebarItem href="/budgets?tab=categories" icon="◈" label="Categories" />
+          <SidebarItem href="/categories" icon="◈" label="Categories" />
         </nav>
         <div className="px-3 pb-5 pt-3 border-t border-white/10 space-y-2">
           <p className="px-3 text-xs text-slate-500 truncate">{userEmail}</p>

@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { buckets, categories, expenses } from "@/lib/db/schema";
+import { categories, expenses } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
-import BudgetsClient from "./BudgetsClient";
+import CategoriesClient from "./CategoriesClient";
 
 function SidebarItem({
   href, icon, label, active, badge,
@@ -29,16 +29,10 @@ function SidebarItem({
   );
 }
 
-export default async function BudgetsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ category?: string }>;
-}) {
+export default async function CategoriesPage() {
   const user = await requireUser();
-  const { category } = await searchParams;
 
-  const [allBuckets, allCategories, pendingCount] = await Promise.all([
-    db.select().from(buckets).where(eq(buckets.user_id, user.id)).orderBy(buckets.name),
+  const [allCategories, pendingCount] = await Promise.all([
     db.select().from(categories).where(eq(categories.user_id, user.id)).orderBy(categories.name),
     db.select({ count: sql<number>`count(*)::int` })
       .from(expenses)
@@ -66,8 +60,8 @@ export default async function BudgetsPage({
           <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
           <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
-          <SidebarItem href="/budgets" icon="◎" label="Budgets" active />
-          <SidebarItem href="/categories" icon="◈" label="Categories" />
+          <SidebarItem href="/budgets" icon="◎" label="Budgets" />
+          <SidebarItem href="/categories" icon="◈" label="Categories" active />
         </nav>
         <div className="px-3 pb-5 pt-3 border-t border-white/10 space-y-2">
           <p className="px-3 text-xs text-slate-500 truncate">{user.email}</p>
@@ -81,16 +75,16 @@ export default async function BudgetsPage({
         {/* Mobile header */}
         <header className="md:hidden sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
           <Link href="/" className="text-gray-400 hover:text-gray-700 transition-colors text-lg">‹</Link>
-          <h1 className="text-base font-semibold text-gray-900">Budgets</h1>
+          <h1 className="text-base font-semibold text-gray-900">Categories</h1>
         </header>
 
         {/* Desktop header */}
         <div className="hidden md:block sticky top-0 z-10 bg-white border-b border-gray-200 px-8 py-3">
-          <h1 className="text-base font-semibold text-gray-900">Budgets</h1>
+          <h1 className="text-base font-semibold text-gray-900">Categories</h1>
         </div>
 
         <main className="px-4 md:px-8 py-6 pb-24">
-          <BudgetsClient budgets={allBuckets} categories={allCategories} defaultCategoryId={category} />
+          <CategoriesClient categories={allCategories} />
         </main>
       </div>
     </div>
