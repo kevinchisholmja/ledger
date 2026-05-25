@@ -43,9 +43,31 @@
 
 ## Phase 4 additions (P4 — 2026-05-24)
 
-- `buckets_summary` is now wired to `app/page.tsx`. Use `db.execute(sql\`...\`)` — it's a view, not a Drizzle table. Returns Postgres numeric values as strings — always wrap with `Number()`.
 - `expenses.bucket_id` (UUID FK → buckets) was added to the Drizzle schema. The PATCH route at `app/api/expenses/[id]/route.ts` now accepts `bucket_id`.
 - ReviewCard now has a Budget dropdown — it saves `bucket_id` alongside `category_id` when confirming.
 - iOS Shortcut endpoint: `POST /api/shortcut/upload` — multipart form-data, auth via `x-shortcut-secret` header matching `SHORTCUT_SECRET` env var. Source = `shortcut`.
 - `docs/ios-shortcut.md` — step-by-step Shortcut setup guide.
-- Dashboard budget cards sort by spend % descending (over-budget first). Colors: blue < 80%, amber 80–99%, red 100%+.
+
+## Phase 5 additions (P5 — 2026-05-25)
+
+### UI redesign
+- Dark navy sidebar (`bg-[#1B1F3B]`) replacing white sidebar — YNAB-style.
+- 3-column layout on md+: navy sidebar | center content | white right summary panel (sticky, `w-72`).
+- Full-width status banner above center content — green (`bg-emerald-600`) when under budget, blue (`bg-blue-600`) when within 80–99%, red (`bg-red-600`) when over.
+- Login page: split layout, Google OAuth primary CTA, magic link secondary.
+- Light theme across all pages: `bg-gray-50` page, white cards, `border-gray-200`.
+
+### Period view selector
+- `lib/period.ts` — shared (non-client) module holding `ViewPeriod` type, `isValidViewPeriod()`, `BUDGET_PERIOD_DAYS`, `VIEW_PERIOD_DAYS`. Must NOT be a client component — server pages import from here.
+- Dashboard (`app/page.tsx`) accepts `?period=week|fortnight|month|quarter|year` via `searchParams`. Defaults to `month`.
+- `app/components/PeriodSelector.tsx` — `"use client"` dropdown that pushes `?period=X` to the URL. Imports `ViewPeriod` from `lib/period.ts`.
+- **`buckets_summary` view is no longer used in the dashboard.** Replaced by a direct Drizzle query on `buckets` + `expenses` with a dynamic date range, so spending aggregates correctly for any period window.
+- Pro-rating formula: `proratedAmount = budget.amount × (viewDays / nativeBudgetDays)`. Activity = SUM of expenses in the date window for that bucket. Available = proratedAmount − activity.
+- Fortnight anchor: days 1–14 = first half, days 15–end = second half of the month.
+- Quarter ranges: Q1=Jan–Mar, Q2=Apr–Jun, Q3=Jul–Sep, Q4=Oct–Dec.
+
+### Long-horizon budget periods
+- `budget_period` enum extended with: `biennial` (2yr), `triennial` (3yr), `quinquennial` (5yr), `decennial` (10yr).
+- Migration: `supabase/migrations/20240006_add_long_budget_periods.sql` — run once in Supabase Dashboard SQL editor if not yet applied.
+- `BudgetsClient.tsx` PERIODS array updated with human-readable labels for all period types.
+- When a budget's native period differs from the view window, the budget row subtitle shows the native amount and period (e.g. `$50,000 / monthly`) so the user understands the pro-rating.
