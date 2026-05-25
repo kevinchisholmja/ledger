@@ -4,35 +4,10 @@ import { db } from "@/lib/db/client";
 import { buckets, expenses } from "@/lib/db/schema";
 import { eq, and, or, ne, gte, lte, isNotNull, desc, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
-import PeriodSelector, { isValidViewPeriod } from "@/app/components/PeriodSelector";
-import type { ViewPeriod } from "@/app/components/PeriodSelector";
+import PeriodSelector from "@/app/components/PeriodSelector";
+import { isValidViewPeriod, BUDGET_PERIOD_DAYS, VIEW_PERIOD_DAYS } from "@/lib/period";
+import type { ViewPeriod } from "@/lib/period";
 import { formatCurrency } from "@/lib/format";
-
-// ── Period math ───────────────────────────────────────────────────────────────
-
-const AVG_YEAR = 365.25;
-
-/** Days in each budget's native period (for pro-rating). */
-const BUDGET_PERIOD_DAYS: Record<string, number> = {
-  weekly:       7,
-  fortnightly:  14,
-  monthly:      AVG_YEAR / 12,
-  quarterly:    AVG_YEAR / 4,
-  annual:       AVG_YEAR,
-  biennial:     AVG_YEAR * 2,
-  triennial:    AVG_YEAR * 3,
-  quinquennial: AVG_YEAR * 5,
-  decennial:    AVG_YEAR * 10,
-};
-
-/** Days in each selectable view window. */
-const VIEW_PERIOD_DAYS: Record<ViewPeriod, number> = {
-  week:     7,
-  fortnight: 14,
-  month:    AVG_YEAR / 12,
-  quarter:  AVG_YEAR / 4,
-  year:     AVG_YEAR,
-};
 
 function toDateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
