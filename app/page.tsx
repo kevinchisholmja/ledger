@@ -225,6 +225,7 @@ export default async function DashboardPage({
           <SidebarItem href="/plan" icon="◫" label="Plan" />
           <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
+          <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
           <SidebarItem href="/budgets" icon="◎" label="Budgets" />
         </nav>
         <div className="px-3 pb-5 pt-3 border-t border-white/10 space-y-2">

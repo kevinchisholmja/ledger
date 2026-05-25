@@ -87,3 +87,16 @@
 ### Missing columns catch-up (2026-05-25)
 - `icon`, `color`, `currency` were in the original schema but may be absent in live DBs set up via the Supabase dashboard UI.
 - Migration: `supabase/migrations/20240008_add_missing_bucket_columns.sql` — adds all four potentially missing columns (`icon`, `color`, `currency`, `group_name`) with `IF NOT EXISTS`. Run this instead of 20240007 if both are pending.
+- `categories.icon` — added via migration 20240009. Applied to production DB directly.
+
+### Categories management (2026-05-25)
+- Budgets page (`/budgets`) now has two tabs: **Budgets** and **Categories**.
+- Categories are used for expense classification in the review flow (separate from budget groups).
+- API: `POST /api/categories` (create), `DELETE /api/categories/[id]` (delete), `GET /api/categories` (list).
+- ReviewCard category field is now a text `<input>` with `<datalist>` suggestions — users can type new categories or pick existing ones.
+
+### All Accounts page (2026-05-25)
+- Route: `/accounts` — YNAB-style ledger showing all expenses.
+- Server component queries all expenses + buckets, groups by date.
+- Desktop table: Date | Payee | Budget | Category | Source | Outflow.
+- Added to nav sidebar (icon ⬡) across Dashboard, Plan, and Accounts pages.

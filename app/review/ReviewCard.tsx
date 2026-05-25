@@ -107,10 +107,16 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
           </div>
           <div>
             <label className={labelCls}>Category</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectCls}>
-              <option value="">— pick one —</option>
-              {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-            </select>
+            <input
+              list="cat-suggestions"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="e.g. Groceries"
+              className={inputCls}
+            />
+            <datalist id="cat-suggestions">
+              {categories.map((c) => <option key={c.id} value={c.name} />)}
+            </datalist>
           </div>
           <div className="col-span-2">
             <label className={labelCls}>Budget</label>
