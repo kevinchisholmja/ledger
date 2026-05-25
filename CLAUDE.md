@@ -71,3 +71,19 @@
 - Migration: `supabase/migrations/20240006_add_long_budget_periods.sql` — run once in Supabase Dashboard SQL editor if not yet applied.
 - `BudgetsClient.tsx` PERIODS array updated with human-readable labels for all period types.
 - When a budget's native period differs from the view window, the budget row subtitle shows the native amount and period (e.g. `$50,000 / monthly`) so the user understands the pro-rating.
+
+### Plan page (P5 — 2026-05-25)
+- Route: `/plan` — YNAB-style monthly budget planning view.
+- `app/plan/page.tsx` — server component. Accepts `?month=YYYY-MM`, queries `buckets` + `expenses`, pro-rates all periods to monthly (`nativeAmount × AVG_MONTH_DAYS / nativePeriodDays`), groups by `group_name`, passes `PlanGroup[]` to `PlanClient`.
+- `app/plan/PlanClient.tsx` — client component. 3-column layout (same navy sidebar), month navigator (`‹ May 2026 ›`), status banner, YNAB-style table: CATEGORY | ASSIGNED | ACTIVITY | AVAILABLE. Collapsible groups. Inline ASSIGNED editing: click → input → back-calculates native amount → `PATCH /api/budgets/:id` → `router.refresh()`.
+- Back-calculate formula: `newNativeAmount = editedMonthly × (nativePeriodDays / AVG_MONTH_DAYS)`.
+- `app/api/budgets/rename-group/route.ts` — `PATCH {oldName, newName}` renames all buckets in a group for the user.
+- `BudgetsClient` accepts `defaultGroup` prop — Plan page "Add budget to [Group]" links pass `?group=X`.
+
+### Budget groups
+- `group_name text NOT NULL DEFAULT 'Uncategorized'` on `buckets` table.
+- Migration: `supabase/migrations/20240007_add_bucket_group.sql` — must be applied in Supabase Dashboard SQL editor.
+
+### Missing columns catch-up (2026-05-25)
+- `icon`, `color`, `currency` were in the original schema but may be absent in live DBs set up via the Supabase dashboard UI.
+- Migration: `supabase/migrations/20240008_add_missing_bucket_columns.sql` — adds all four potentially missing columns (`icon`, `color`, `currency`, `group_name`) with `IF NOT EXISTS`. Run this instead of 20240007 if both are pending.
