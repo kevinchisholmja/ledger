@@ -34,12 +34,23 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
   const [tab, setTab] = useState<Tab>("budgets");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
 
+  // Distinct group names derived from existing budgets
+  const existingGroups = [
+    "Uncategorized",
+    ...Array.from(new Set(budgets.map((b) => b.group_name).filter((g) => g && g !== "Uncategorized"))),
+  ];
+
   // budget form
   const [showBudgetForm, setShowBudgetForm] = useState(defaultGroup !== undefined);
   const [bName, setBName] = useState("");
   const [period, setPeriod] = useState("monthly");
   const [amount, setAmount] = useState("");
   const [groupName, setGroupName] = useState(defaultGroup ?? "Uncategorized");
+  // "pick" = dropdown of existing groups; "new" = free text for a new group
+  const [groupMode, setGroupMode] = useState<"pick" | "new">(() => {
+    if (defaultGroup === undefined || defaultGroup === "") return "pick";
+    return existingGroups.includes(defaultGroup) ? "pick" : "new";
+  });
   const [bSaving, setBSaving] = useState(false);
 
   // label form
@@ -62,7 +73,8 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
         category_id: selectedCategoryId || null,
       }),
     });
-    setBName(""); setAmount(""); setSelectedCategoryId(""); setShowBudgetForm(false); setBSaving(false);
+    setBName(""); setAmount(""); setSelectedCategoryId(""); setGroupName("Uncategorized");
+    setGroupMode("pick"); setShowBudgetForm(false); setBSaving(false);
     router.refresh();
   }
 
@@ -158,7 +170,42 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
               </div>
               <div>
                 <label className={labelCls}>Category</label>
-                <input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="e.g. Bills, Needs, Wants" className={inputCls} />
+                {groupMode === "pick" ? (
+                  <select
+                    value={existingGroups.includes(groupName) ? groupName : existingGroups[0]}
+                    onChange={(e) => {
+                      if (e.target.value === "__new__") {
+                        setGroupMode("new");
+                        setGroupName("");
+                      } else {
+                        setGroupName(e.target.value);
+                      }
+                    }}
+                    className={selectCls}
+                  >
+                    {existingGroups.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                    <option value="__new__">＋ New category…</option>
+                  </select>
+                ) : (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      autoFocus
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      placeholder="e.g. Bills, Needs, Wants"
+                      className={inputCls}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setGroupMode("pick"); setGroupName(existingGroups[0]); }}
+                      className="shrink-0 text-xs text-blue-600 hover:text-blue-500 transition-colors whitespace-nowrap"
+                    >
+                      Pick existing
+                    </button>
+                  </div>
+                )}
               </div>
               {categories.length > 0 && (
                 <div>
@@ -172,7 +219,7 @@ export default function BudgetsClient({ budgets, categories, defaultGroup }: Pro
                 </div>
               )}
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => { setShowBudgetForm(false); setSelectedCategoryId(""); }}
+                <button type="button" onClick={() => { setShowBudgetForm(false); setSelectedCategoryId(""); setGroupMode("pick"); setGroupName("Uncategorized"); }}
                   className="flex-1 rounded-xl border border-gray-300 py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
