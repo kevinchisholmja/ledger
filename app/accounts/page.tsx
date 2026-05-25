@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { expenses, buckets } from "@/lib/db/schema";
+import { expenses, buckets, bankAccounts } from "@/lib/db/schema";
 import { eq, and, ne, isNotNull, desc, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
 import { formatCurrency } from "@/lib/format";
+import AccountsClient from "./AccountsClient";
 
 function SidebarItem({
   href, icon, label, active, badge,
@@ -46,7 +47,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default async function AccountsPage() {
   const user = await requireUser();
 
-  const [allExpenses, pendingCount, totalSpent, userBuckets] = await Promise.all([
+  const [allExpenses, allBankAccounts, pendingCount, totalSpent, userBuckets] = await Promise.all([
     db.select({
       id: expenses.id,
       merchant: expenses.merchant,
@@ -61,6 +62,11 @@ export default async function AccountsPage() {
     .from(expenses)
     .where(eq(expenses.user_id, user.id))
     .orderBy(desc(expenses.date), desc(expenses.created_at)),
+
+    db.select()
+      .from(bankAccounts)
+      .where(eq(bankAccounts.user_id, user.id))
+      .orderBy(bankAccounts.name),
 
     db.select({ count: sql<number>`count(*)::int` })
       .from(expenses)
@@ -86,7 +92,7 @@ export default async function AccountsPage() {
 
   const bucketMap = new Map(userBuckets.map((b) => [b.id, b.name]));
 
-  // Group by date
+  // Group transactions by date
   const byDate = new Map<string, typeof allExpenses>();
   for (const e of allExpenses) {
     if (!byDate.has(e.date)) byDate.set(e.date, []);
@@ -94,8 +100,12 @@ export default async function AccountsPage() {
   }
   const dateGroups = [...byDate.entries()];
 
-  const confirmedCount = allExpenses.filter((e) => e.status === "confirmed" || e.status === "reconciled").length;
-  const pendingReview = allExpenses.filter((e) => e.status === "pending_review" || e.status === "pending_ocr").length;
+  const confirmedCount = allExpenses.filter(
+    (e) => e.status === "confirmed" || e.status === "reconciled"
+  ).length;
+  const pendingReview = allExpenses.filter(
+    (e) => e.status === "pending_review" || e.status === "pending_ocr"
+  ).length;
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900">
@@ -139,119 +149,121 @@ export default async function AccountsPage() {
             <h1 className="text-base font-semibold text-gray-900">All Accounts</h1>
           </div>
 
-          {/* Summary strip */}
-          <div className="bg-white border-b border-gray-200 px-4 md:px-8 py-4 flex items-center gap-6 flex-wrap">
-            <div className="text-center">
-              <p className="text-xs text-gray-400 mb-0.5">Total Spending</p>
-              <p className="text-lg font-bold text-gray-900 tabular-nums">{formatCurrency(totalSpent, "JMD")}</p>
-            </div>
-            <div className="h-8 w-px bg-gray-200 hidden sm:block" />
-            <div className="text-center">
-              <p className="text-xs text-gray-400 mb-0.5">Transactions</p>
-              <p className="text-lg font-bold text-gray-900">{allExpenses.length}</p>
-            </div>
-            <div className="h-8 w-px bg-gray-200 hidden sm:block" />
-            <div className="text-center">
-              <p className="text-xs text-gray-400 mb-0.5">Confirmed</p>
-              <p className="text-lg font-bold text-emerald-600">{confirmedCount}</p>
-            </div>
-            <div className="h-8 w-px bg-gray-200 hidden sm:block" />
-            <div className="text-center">
-              <p className="text-xs text-gray-400 mb-0.5">Needs Review</p>
-              <p className="text-lg font-bold text-blue-600">{pendingReview}</p>
-            </div>
-            <div className="ml-auto">
-              <Link href="/review"
-                className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors">
-                Review →
-              </Link>
-            </div>
-          </div>
+          <main className="flex-1 px-4 md:px-8 py-6 space-y-8 pb-24 md:pb-10">
 
-          {/* Column headers — desktop */}
-          <div className="hidden md:grid border-b border-gray-200 bg-gray-50 px-8 py-2"
-            style={{ gridTemplateColumns: "90px 1fr 140px 100px 120px 110px" }}>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Date</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Payee</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Budget</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Category</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Source</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right">Outflow</span>
-          </div>
+            {/* ── Bank Accounts section ── */}
+            <section>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
+                Bank Accounts
+              </h2>
+              <AccountsClient accounts={allBankAccounts} />
+            </section>
 
-          {/* Transaction list */}
-          <main className="flex-1 pb-24 md:pb-10">
-            {allExpenses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-                <p className="text-gray-500 font-medium">No transactions yet</p>
-                <p className="text-gray-400 text-sm mt-1.5">Send a receipt to your Telegram bot to get started</p>
+            {/* ── Transactions section ── */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Transactions
+                </h2>
+                <div className="flex items-center gap-4 text-xs text-gray-400">
+                  <span><span className="font-semibold text-gray-900">{allExpenses.length}</span> total</span>
+                  <span><span className="font-semibold text-emerald-600">{confirmedCount}</span> confirmed</span>
+                  <span><span className="font-semibold text-blue-600">{pendingReview}</span> needs review</span>
+                  <span className="font-semibold text-gray-900 tabular-nums">{formatCurrency(totalSpent, "JMD")}</span>
+                </div>
               </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {dateGroups.map(([date, items]) => (
-                  <div key={date}>
-                    {/* Date subheader */}
-                    <div className="px-4 md:px-8 py-1.5 bg-gray-50 border-b border-gray-100">
-                      <span className="text-xs font-semibold text-gray-400">
-                        {new Date(date + "T12:00:00").toLocaleDateString("en-JM", {
-                          weekday: "short", month: "short", day: "numeric", year: "numeric",
-                        })}
-                      </span>
-                    </div>
 
-                    {items.map((e) => {
-                      const budgetName = e.bucket_id ? bucketMap.get(e.bucket_id) : null;
-                      const hasAmount = e.amount != null && e.status !== "pending_ocr";
+              {/* Column headers — desktop */}
+              <div
+                className="hidden md:grid border-b border-gray-200 bg-gray-50 rounded-t-2xl px-4 py-2"
+                style={{ gridTemplateColumns: "90px 1fr 140px 100px 120px 110px" }}
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Date</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Payee</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Budget</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Label</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Source</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right">Outflow</span>
+              </div>
 
-                      return (
-                        <Link key={e.id} href="/review"
-                          className="flex md:grid items-center gap-3 md:gap-0 px-4 md:px-8 py-3 hover:bg-gray-50 transition-colors"
-                          style={{ gridTemplateColumns: "90px 1fr 140px 100px 120px 110px" }}>
+              {allExpenses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center rounded-2xl bg-white border border-gray-200">
+                  <p className="text-gray-500 font-medium">No transactions yet</p>
+                  <p className="text-gray-400 text-sm mt-1.5">
+                    Send a receipt to your Telegram bot to get started
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-b-2xl md:rounded-t-none rounded-2xl bg-white border border-gray-200 overflow-hidden divide-y divide-gray-100">
+                  {dateGroups.map(([date, items]) => (
+                    <div key={date}>
+                      {/* Date subheader */}
+                      <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-100">
+                        <span className="text-xs font-semibold text-gray-400">
+                          {new Date(date + "T12:00:00").toLocaleDateString("en-JM", {
+                            weekday: "short", month: "short", day: "numeric", year: "numeric",
+                          })}
+                        </span>
+                      </div>
 
-                          {/* Mobile layout */}
-                          <div className="md:hidden flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {e.merchant ?? "—"}
-                              </p>
-                              <p className={`text-sm font-semibold tabular-nums shrink-0 ${hasAmount ? "text-gray-900" : "text-gray-400"}`}>
-                                {hasAmount ? formatCurrency(Number(e.amount), e.currency) : "pending"}
-                              </p>
+                      {items.map((e) => {
+                        const budgetName = e.bucket_id ? bucketMap.get(e.bucket_id) : null;
+                        const hasAmount = e.amount != null && e.status !== "pending_ocr";
+
+                        return (
+                          <Link
+                            key={e.id}
+                            href="/review"
+                            className="flex md:grid items-center gap-3 md:gap-0 px-4 py-3 hover:bg-gray-50 transition-colors"
+                            style={{ gridTemplateColumns: "90px 1fr 140px 100px 120px 110px" }}
+                          >
+                            {/* Mobile layout */}
+                            <div className="md:hidden flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {e.merchant ?? "—"}
+                                </p>
+                                <p className={`text-sm font-semibold tabular-nums shrink-0 ${hasAmount ? "text-gray-900" : "text-gray-400"}`}>
+                                  {hasAmount ? formatCurrency(Number(e.amount), e.currency) : "pending"}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[e.status] ?? "bg-gray-100 text-gray-500"}`}>
+                                  {STATUS_LABELS[e.status] ?? e.status}
+                                </span>
+                                {budgetName && (
+                                  <span className="text-xs text-gray-400 truncate">{budgetName}</span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
+
+                            {/* Desktop layout */}
+                            <span className="hidden md:block text-sm text-gray-400 tabular-nums">{date}</span>
+                            <span className="hidden md:block text-sm font-medium text-gray-900 truncate pr-4">
+                              {e.merchant ?? <span className="text-gray-400 italic">No merchant</span>}
+                            </span>
+                            <span className="hidden md:block text-sm text-gray-500 truncate pr-2">
+                              {budgetName ?? <span className="text-gray-300">—</span>}
+                            </span>
+                            <span className="hidden md:block text-sm text-gray-500 truncate pr-2">
+                              {e.confirmed_category ?? <span className="text-gray-300">—</span>}
+                            </span>
+                            <span className="hidden md:flex items-center">
                               <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[e.status] ?? "bg-gray-100 text-gray-500"}`}>
                                 {STATUS_LABELS[e.status] ?? e.status}
                               </span>
-                              {budgetName && <span className="text-xs text-gray-400 truncate">{budgetName}</span>}
-                            </div>
-                          </div>
-
-                          {/* Desktop layout */}
-                          <span className="hidden md:block text-sm text-gray-400 tabular-nums">{date}</span>
-                          <span className="hidden md:block text-sm font-medium text-gray-900 truncate pr-4">
-                            {e.merchant ?? <span className="text-gray-400 italic">No merchant</span>}
-                          </span>
-                          <span className="hidden md:block text-sm text-gray-500 truncate pr-2">
-                            {budgetName ?? <span className="text-gray-300">—</span>}
-                          </span>
-                          <span className="hidden md:block text-sm text-gray-500 truncate pr-2">
-                            {e.confirmed_category ?? <span className="text-gray-300">—</span>}
-                          </span>
-                          <span className="hidden md:flex items-center">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[e.status] ?? "bg-gray-100 text-gray-500"}`}>
-                              {STATUS_LABELS[e.status] ?? e.status}
                             </span>
-                          </span>
-                          <span className={`hidden md:block text-sm font-semibold tabular-nums text-right ${hasAmount ? "text-gray-900" : "text-gray-400"}`}>
-                            {hasAmount ? formatCurrency(Number(e.amount), e.currency) : "—"}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            )}
+                            <span className={`hidden md:block text-sm font-semibold tabular-nums text-right ${hasAmount ? "text-gray-900" : "text-gray-400"}`}>
+                              {hasAmount ? formatCurrency(Number(e.amount), e.currency) : "—"}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </main>
         </div>
       </div>

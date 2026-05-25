@@ -103,6 +103,18 @@ export const bankEntries = pgTable("bank_entries", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+export const bankAccounts = pgTable("bank_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id").notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("checking"),
+  balance: numeric("balance", { precision: 12, scale: 2 }).notNull().default("0"),
+  currency: text("currency").notNull().default("JMD"),
+  active: boolean("active").notNull().default(true),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type Category = typeof categories.$inferSelect;
@@ -113,3 +125,5 @@ export type BankEntry = typeof bankEntries.$inferSelect;
 export type NewExpense = typeof expenses.$inferInsert;
 export type NewBucket = typeof buckets.$inferInsert;
 export type NewCategory = typeof categories.$inferInsert;
+export type BankAccount = typeof bankAccounts.$inferSelect;
+export type NewBankAccount = typeof bankAccounts.$inferInsert;

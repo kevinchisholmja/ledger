@@ -435,14 +435,14 @@ export default function PlanClient({
                   </div>
                 </div>
 
-                {/* + Add Group */}
+                {/* + Add*/}
                 <div className="px-4 md:px-8 py-4">
                   <Link
                     href="/budgets?newGroup=1"
                     className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-500 transition-colors font-medium"
                   >
                     <span className="text-lg leading-none">+</span>
-                    Add Group
+                    Add Category
                   </Link>
                 </div>
               </div>
@@ -502,7 +502,7 @@ export default function PlanClient({
             {/* Per-group breakdown */}
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-                By Group
+                By Category
               </h3>
               <div className="space-y-2">
                 {groups.map((g) => {
