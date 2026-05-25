@@ -16,6 +16,10 @@ export const budgetPeriodEnum = pgEnum("budget_period", [
   "monthly",
   "quarterly",
   "annual",
+  "biennial",
+  "quinquennial",
+  "triennial",
+  "decennial",
 ]);
 
 export const expenseSourceEnum = pgEnum("expense_source", [

@@ -5,7 +5,17 @@ import { useRouter } from "next/navigation";
 import type { Bucket, Category } from "@/lib/db/schema";
 import { formatJMD } from "@/lib/format";
 
-const PERIODS = ["weekly", "fortnightly", "monthly", "quarterly", "annual"] as const;
+const PERIODS: { value: string; label: string }[] = [
+  { value: "weekly",       label: "Weekly" },
+  { value: "fortnightly",  label: "Fortnightly" },
+  { value: "monthly",      label: "Monthly" },
+  { value: "quarterly",    label: "Quarterly" },
+  { value: "annual",       label: "Annual (1 year)" },
+  { value: "biennial",     label: "Every 2 years" },
+  { value: "triennial",    label: "Every 3 years" },
+  { value: "quinquennial", label: "Every 5 years" },
+  { value: "decennial",    label: "Every 10 years" },
+];
 
 interface Props {
   budgets: Bucket[];
@@ -20,7 +30,7 @@ export default function BudgetsClient({ budgets, categories }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
-  const [period, setPeriod] = useState<(typeof PERIODS)[number]>("monthly");
+  const [period, setPeriod] = useState("monthly");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -86,8 +96,8 @@ export default function BudgetsClient({ budgets, categories }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Period</label>
-              <select value={period} onChange={(e) => setPeriod(e.target.value as typeof period)} className={selectCls}>
-                {PERIODS.map((p) => <option key={p} value={p} className="capitalize">{p}</option>)}
+              <select value={period} onChange={(e) => setPeriod(e.target.value)} className={selectCls}>
+                {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </div>
             <div>
