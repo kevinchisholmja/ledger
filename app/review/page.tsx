@@ -69,6 +69,7 @@ export default async function ReviewPage() {
         <nav className="flex-1 px-3 py-2 space-y-0.5">
           <SidebarItem href="/" icon="⊞" label="Dashboard" />
           <SidebarItem href="/plan" icon="◫" label="Plan" />
+          <SidebarItem href="/goals" icon="◇" label="Goals" />
           <SidebarItem href="/review" icon="✓" label="Review" active badge={pendingCount > 0 ? pendingCount : undefined} />
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
           <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />

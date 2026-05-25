@@ -115,6 +115,19 @@ export const bankAccounts = pgTable("bank_accounts", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
+export const goals = pgTable("goals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id").notNull(),
+  name: text("name").notNull(),
+  icon: text("icon"),
+  target_amount: numeric("target_amount", { precision: 14, scale: 2 }).notNull(),
+  target_date: text("target_date").notNull(), // YYYY-MM-DD (stored as first of target month)
+  monthly_allocation: numeric("monthly_allocation", { precision: 12, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("JMD"),
+  notes: text("notes"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type Category = typeof categories.$inferSelect;
@@ -127,3 +140,5 @@ export type NewBucket = typeof buckets.$inferInsert;
 export type NewCategory = typeof categories.$inferInsert;
 export type BankAccount = typeof bankAccounts.$inferSelect;
 export type NewBankAccount = typeof bankAccounts.$inferInsert;
+export type Goal = typeof goals.$inferSelect;
+export type NewGoal = typeof goals.$inferInsert;
