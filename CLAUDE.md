@@ -26,6 +26,14 @@
 - `expense_source` enum has values: `telegram`, `shortcut`, `manual`, `csv` — all four must be in the schema.
 - Supabase Storage bucket is named `receipts`. Upload paths must NOT include `receipts/` prefix — the bucket name is already in the URL.
 
+## Naming conventions (P3.5 — do not revert)
+
+- UI uses **"budget/budgets"** (not bucket) and **"transaction/transactions"** (not expense).
+- Routes: `/budgets`, `/transactions`, `/api/budgets`, `/api/budgets/[id]`.
+- DB tables remain `buckets` and `expenses` — do not rename them.
+- Primary accent colour is **`blue-600` (`#2563EB`)** — no `indigo` anywhere in the codebase.
+- Currency formatting: always use `formatJMD()` or `formatCurrency()` from `lib/format.ts` — never inline `Intl.NumberFormat` or `J$${...}`.
+
 ## Known patterns
 
 - `buckets_summary` is a Postgres view with `security_invoker = true`. Drizzle service-role queries bypass RLS regardless — always add `WHERE user_id = X`.
