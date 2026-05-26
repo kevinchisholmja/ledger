@@ -6,7 +6,7 @@ import { eq, and, ne, isNotNull, desc, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
 import { formatCurrency } from "@/lib/format";
 import AccountsClient from "./AccountsClient";
-import TransactionListClient from "./TransactionListClient";
+import TransactionListClient from "@/app/components/TransactionListClient";
 
 function SidebarItem({
   href, icon, label, active, badge,
@@ -45,6 +45,7 @@ export default async function AccountsPage() {
       status: expenses.status,
       source: expenses.source,
       bucket_id: expenses.bucket_id,
+      category_id: expenses.category_id,
       confirmed_category: expenses.confirmed_category,
     })
     .from(expenses)

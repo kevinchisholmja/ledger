@@ -13,6 +13,7 @@ export interface TxRow {
   status: string;
   source: string;
   bucket_id: string | null;
+  category_id: string | null;
   confirmed_category: string | null;
 }
 
@@ -34,7 +35,6 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const selectCls = "rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
-const inputCls = "rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-900 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
 
 function TransactionRow({
   tx,
@@ -50,23 +50,23 @@ function TransactionRow({
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [budgetId, setBudgetId] = useState(tx.bucket_id ?? "");
-  const [category, setCategory] = useState(tx.confirmed_category ?? "");
+  const [categoryId, setCategoryId] = useState(tx.category_id ?? "");
   const [saving, setSaving] = useState(false);
 
   const hasAmount = tx.amount != null && tx.status !== "pending_ocr";
   const budgetName = tx.bucket_id ? bucketMap.get(tx.bucket_id) : null;
-  const listId = `cat-list-${tx.id}`;
+  const categoryName = tx.confirmed_category;
 
   async function save() {
     setSaving(true);
-    const matchedCat = categories.find((c) => c.name.toLowerCase() === category.toLowerCase());
+    const selectedCat = categories.find((c) => c.id === categoryId);
     await fetch(`/api/expenses/${tx.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         bucket_id: budgetId || null,
-        confirmed_category: category || null,
-        category_id: matchedCat?.id ?? null,
+        confirmed_category: selectedCat?.name ?? null,
+        category_id: categoryId || null,
         status: tx.status === "pending_review" || tx.status === "pending_ocr" ? "confirmed" : tx.status,
       }),
     });
@@ -108,7 +108,7 @@ function TransactionRow({
           {budgetName ?? <span className="text-gray-300">—</span>}
         </span>
         <span className="hidden md:block text-sm text-gray-500 truncate pr-2">
-          {tx.confirmed_category ?? <span className="text-gray-300">—</span>}
+          {categoryName ?? <span className="text-gray-300">—</span>}
         </span>
         <span className="hidden md:flex items-center">
           <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[tx.status] ?? "bg-gray-100 text-gray-500"}`}>
@@ -138,17 +138,19 @@ function TransactionRow({
 
           <div className="flex flex-col gap-1 min-w-[160px]">
             <label className="text-xs font-medium text-gray-500">Category</label>
-            <input
-              list={listId}
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Groceries"
-              className={inputCls}
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className={selectCls}
               onClick={(e) => e.stopPropagation()}
-            />
-            <datalist id={listId}>
-              {categories.map((c) => <option key={c.id} value={c.name} />)}
-            </datalist>
+            >
+              <option value="">— no category —</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.icon ? `${c.icon} ` : ""}{c.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center gap-2 pb-0.5">
@@ -183,7 +185,6 @@ export default function TransactionListClient({
 }) {
   const bucketMap = new Map(budgets.map((b) => [b.id, b.name]));
 
-  // Group by date
   const byDate = new Map<string, TxRow[]>();
   for (const tx of transactions) {
     if (!byDate.has(tx.date)) byDate.set(tx.date, []);
@@ -211,7 +212,7 @@ export default function TransactionListClient({
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Payee</span>
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Budget</span>
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Category</span>
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Source</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Status</span>
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right">Outflow</span>
       </div>
 

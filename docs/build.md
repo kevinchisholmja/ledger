@@ -108,22 +108,89 @@ dashboard budget cards. `design-reference/` holds screenshots — gitignored (22
 
 ---
 
-## Phase 4 — buckets_summary + iOS Shortcut
-**Date:** TBD · **Status:** Scoped, not yet started
+## Phase 4 — iOS Shortcut + Budget/Category FK refactor
+**Date:** 2026-05-25 · **Status:** Complete
 
-Two parts that make the app fully daily-usable:
+**iOS Shortcut:** `POST /api/shortcut/upload` — multipart form-data, authenticated
+via `x-shortcut-secret` header matching `SHORTCUT_SECRET` env var. Same OCR
+pipeline as Telegram. Source = `shortcut`. Setup guide at `docs/ios-shortcut.md`.
 
-**Part A — Dashboard redesign:** wire the existing `buckets_summary` Postgres view
-to the dashboard. Budget cards will show month_spent, month_remaining, year_spent,
-and a Copilot-style progress bar coloured by spend level. Currently the dashboard
-queries the `buckets` table directly and shows only the allocated amount — the view
-exists but was never wired up.
+**Budget/Category refactor:** Replaced the free-text `group_name` field on budgets
+with a `category_id` FK pointing to the `categories` table. `group_name` column
+remains in the DB for backward compat but is never written from the UI. All budget
+display now shows the linked category name. The Plan page groups budgets by category
+via a LEFT JOIN.
 
-**Part B — iOS Shortcut:** a second expense intake channel for quick manual entry.
-A dedicated multipart upload endpoint (`POST /api/shortcut/upload`) accepts images
-and PDFs from an iOS Shortcut, runs OCR, and stores the expense — same pipeline
-as the Telegram webhook but simpler. The Shortcut is built in the iOS Shortcuts
-app and appears in the share sheet and on the home screen.
+**Separate routes:** `/budgets` and `/categories` are completely independent pages
+(no tabs). Categories (◈) added to all sidebars and the mobile More drawer.
 
-→ `activity/phases/phase-4-shortcut.md` — full scope and constraints  
-→ `activity/ToDo.md` — task breakdown
+**`bucket_id` on expenses:** confirming a transaction now saves `bucket_id` alongside
+`category_id` and `confirmed_category` — required for `buckets_summary` aggregation.
+
+Key facts:
+- Confirming sets THREE fields: `confirmed_category` (text), `category_id` (UUID), `bucket_id` (UUID)
+- `bucket_id` missing → budget cards show $0 spent
+- `category_id` missing → plan page category grouping breaks
+
+→ `activity/2026/2026-05-25.md` and `2026-05-25b.md` — full detail
+
+---
+
+## Phase 5 — Dashboard redesign + Period selector + Plan page
+**Date:** 2026-05-25 · **Status:** Complete
+
+Major UI overhaul bringing the app to a YNAB-style layout across all pages.
+
+**Dark navy sidebar:** `bg-[#1B1F3B]` replacing the white sidebar. 3-column layout
+on md+: navy sidebar | center content | white right summary panel.
+
+**Period view selector:** Dashboard accepts `?period=week|fortnight|month|quarter|year`.
+`lib/period.ts` holds all period math. `PeriodSelector.tsx` pushes `?period=X` to
+the URL. Budgets are pro-rated: `proratedAmount = budget.amount × (viewDays / nativeDays)`.
+`buckets_summary` view no longer used — replaced by a direct Drizzle query with
+dynamic date ranges.
+
+**Long-horizon budget periods:** `biennial`, `triennial`, `quinquennial`, `decennial`
+added to the `budget_period` enum (migration 20240006).
+
+**Plan page** (`/plan`): YNAB-style monthly budget planning. Month navigator,
+status banner, collapsible category groups, inline ASSIGNED editing that back-
+calculates native period amounts. `POST /api/budgets/rename-group` for group renames.
+
+**Goals page** (`/goals`): Multi-year savings goals with monthly allocation, progress
+tracking, and projected completion date.
+
+**All Accounts page** (`/accounts`): Full transaction ledger with bank account
+balance editing. Uses `TransactionListClient` for click-to-expand editing.
+
+→ `activity/2026/2026-05-25.md` and `2026-05-25b.md` — full detail
+
+---
+
+## Phase 6 — Mobile nav + Web upload + Transaction editing
+**Date:** 2026-05-25 · **Status:** Complete
+
+**Mobile bottom nav** (`MobileNav.tsx`): Bottom tab bar on all pages (hidden on
+`/login`). Primary tabs: Home, Review (pending badge), Txns, Plan. "More" opens a
+slide-up drawer with Goals, All Accounts, Budgets, Categories, Sign out. Pending
+count fetched from `GET /api/review/count` on each route change. Safe area handled
+via `env(safe-area-inset-bottom)` inline style.
+
+**Web receipt upload** (`UploadButton.tsx`): Floating FAB (bottom-right, hidden on
+`/login`). Accepts jpeg/png/heic/heif/webp/pdf. Runs same OCR pipeline via
+`POST /api/upload`. Navigates to `/review` on success. States: idle / uploading /
+error (auto-clears after 4 s).
+
+**Transaction editing on all pages:** Every transaction on `/transactions` and
+`/accounts` is now click-to-expand editable. Budget and Category fields are strict
+dropdowns — values must come from the `buckets` and `categories` tables respectively.
+Free-text category entry removed from both `TransactionListClient` and `ReviewCard`.
+`TransactionListClient` moved to `app/components/` and shared across both pages.
+
+Key facts:
+- `MobileNav` and `UploadButton` live in root `app/layout.tsx` and guard against
+  `/login` with `if (pathname === "/login") return null`
+- Saving a transaction sets all three: `bucket_id`, `category_id`, `confirmed_category`
+- `category_id` is always a UUID from the categories table — never a free-text match
+
+→ `activity/2026/2026-05-25b.md` — full detail

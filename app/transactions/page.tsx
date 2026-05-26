@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { expenses } from "@/lib/db/schema";
+import { expenses, buckets, categories } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
-import { formatCurrency } from "@/lib/format";
+import TransactionListClient from "@/app/components/TransactionListClient";
 
 function SidebarItem({
   href, icon, label, active, badge,
@@ -29,41 +29,41 @@ function SidebarItem({
   );
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending_ocr: "OCR pending",
-  pending_review: "Needs review",
-  confirmed: "Confirmed",
-  reconciled: "Reconciled",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending_ocr: "bg-amber-50 border border-amber-200 text-amber-600",
-  pending_review: "bg-blue-50 border border-blue-200 text-blue-600",
-  confirmed: "bg-emerald-50 border border-emerald-200 text-emerald-600",
-  reconciled: "bg-gray-100 text-gray-500",
-};
-
 export default async function TransactionsPage() {
   const user = await requireUser();
 
-  const [allExpenses, pendingCount] = await Promise.all([
-    db.select()
+  const [allExpenses, userBuckets, userCategories, pendingCount] = await Promise.all([
+    db.select({
+      id: expenses.id,
+      merchant: expenses.merchant,
+      amount: expenses.amount,
+      currency: expenses.currency,
+      date: expenses.date,
+      status: expenses.status,
+      source: expenses.source,
+      bucket_id: expenses.bucket_id,
+      category_id: expenses.category_id,
+      confirmed_category: expenses.confirmed_category,
+    })
       .from(expenses)
       .where(eq(expenses.user_id, user.id))
       .orderBy(desc(expenses.date), desc(expenses.created_at)),
+
+    db.select({ id: buckets.id, name: buckets.name })
+      .from(buckets)
+      .where(eq(buckets.user_id, user.id))
+      .orderBy(buckets.name),
+
+    db.select({ id: categories.id, name: categories.name, icon: categories.icon })
+      .from(categories)
+      .where(eq(categories.user_id, user.id))
+      .orderBy(categories.name),
 
     db.select({ count: sql<number>`count(*)::int` })
       .from(expenses)
       .where(and(eq(expenses.user_id, user.id), sql`status IN ('pending_review', 'pending_ocr')`))
       .then((r) => r[0]?.count ?? 0),
   ]);
-
-  const byDate = new Map<string, typeof allExpenses>();
-  for (const e of allExpenses) {
-    if (!byDate.has(e.date)) byDate.set(e.date, []);
-    byDate.get(e.date)!.push(e);
-  }
-  const dateGroups = [...byDate.entries()];
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900">
@@ -110,68 +110,12 @@ export default async function TransactionsPage() {
           <span className="text-xs text-gray-400">{allExpenses.length} total</span>
         </div>
 
-        <main className="px-4 md:px-8 py-4 pb-24 max-w-3xl">
-          {dateGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <p className="text-gray-500 text-sm">No transactions yet</p>
-              <p className="text-gray-400 text-xs mt-1">Send a receipt to your Telegram bot to get started</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {dateGroups.map(([date, items]) => {
-                const dayTotal = items
-                  .filter((e) => e.amount != null && e.status !== "pending_ocr")
-                  .reduce((sum, e) => sum + Number(e.amount), 0);
-
-                return (
-                  <div key={date}>
-                    <div className="flex items-baseline justify-between mb-2 px-1">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                        {new Date(date + "T12:00:00").toLocaleDateString("en-JM", {
-                          weekday: "short", month: "short", day: "numeric",
-                        })}
-                      </span>
-                      {dayTotal > 0 && (
-                        <span className="text-xs text-gray-400 tabular-nums">
-                          {formatCurrency(dayTotal, "JMD")}
-                        </span>
-                      )}
-                    </div>
-                    <ul className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">
-                      {items.map((e) => (
-                        <li key={e.id} className="flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 transition-colors">
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm text-gray-900 truncate">
-                              {e.merchant ?? e.raw_ocr_text?.slice(0, 40) ?? "—"}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[e.status] ?? "bg-gray-100 text-gray-500"}`}>
-                                {STATUS_LABELS[e.status] ?? e.status}
-                              </span>
-                              {(e.confirmed_category ?? e.ai_suggested_category) && (
-                                <span className="text-xs text-gray-400">
-                                  {e.confirmed_category ?? e.ai_suggested_category}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="ml-4 text-right shrink-0">
-                            {e.amount != null ? (
-                              <p className="font-semibold text-sm text-gray-900 tabular-nums">
-                                {formatCurrency(e.amount, e.currency)}
-                              </p>
-                            ) : (
-                              <span className="text-xs text-gray-400">—</span>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        <main className="px-4 md:px-8 py-4 pb-24 max-w-5xl">
+          <TransactionListClient
+            transactions={allExpenses}
+            budgets={userBuckets}
+            categories={userCategories}
+          />
         </main>
       </div>
     </div>

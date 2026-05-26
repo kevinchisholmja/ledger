@@ -38,13 +38,32 @@ User shares photo from iPhone Photos app
   → Same OCR + insert flow as Telegram
 ```
 
+**Web receipt upload:**
+```
+User taps floating "Upload receipt" button (bottom-right FAB, hidden on /login)
+  → File picker → image (jpeg/png/heic/heif/webp) or PDF selected
+  → POST /api/upload (multipart form-data, session auth via requireUser())
+  → Upload to Supabase Storage (receipts/{userId}/{uuid}.ext)
+  → runOcr() → extract merchant, amount, date, category
+  → INSERT into expenses (source: manual, status: pending_ocr or pending_review)
+  → Navigate to /review
+```
+
 **Review + confirm:**
 ```
 User opens /review in browser
   → Drizzle query: expenses WHERE status IN (pending_review, pending_ocr)
-  → User sets merchant, amount, date, category, budget
-  → PATCH /api/expenses/:id → updates expense + sets bucket_id + category_id
+  → User sets merchant, amount, date, category (dropdown from categories table), budget
+  → PATCH /api/expenses/:id → updates expense + sets bucket_id + category_id + confirmed_category
   → status → confirmed
+```
+
+**Edit confirmed transaction:**
+```
+User opens /transactions or /accounts
+  → Click any transaction row to expand edit panel
+  → Budget dropdown (from buckets table) + Category dropdown (from categories table)
+  → PATCH /api/expenses/:id → updates bucket_id + category_id + confirmed_category
 ```
 
 ## Infrastructure
@@ -94,6 +113,8 @@ Drizzle is the **only** DB client for application queries. Supabase JS is used o
 | `app/api/expenses/[id]/route.ts` | PATCH /api/expenses/:id (confirm) |
 | `app/api/expenses/[id]/retry-ocr/route.ts` | POST retry OCR |
 | `app/api/categories/route.ts` | GET/POST /api/categories |
+| `app/api/upload/route.ts` | POST /api/upload (web receipt upload) |
+| `app/api/review/count/route.ts` | GET /api/review/count (pending badge) |
 
 ## Period view selector (P5)
 
@@ -136,17 +157,33 @@ app/
     telegram/webhook/route.ts
     auth/callback/route.ts  ← OAuth + magic link callback
   budgets/
-    page.tsx                ← Budget management page
-    BudgetsClient.tsx       ← Create / delete budget form
+    page.tsx                ← Budget management page (budgets only)
+    BudgetsClient.tsx       ← Create / edit / delete budgets
+  categories/
+    page.tsx                ← Category management page
+    CategoriesClient.tsx    ← Create / edit / delete categories
   review/
     page.tsx                ← Review queue (server)
-    ReviewCard.tsx          ← Confirm / edit card (client)
-  transactions/page.tsx     ← All transactions, grouped by date
+    ReviewCard.tsx          ← Confirm / edit card — category dropdown from categories table
+  transactions/
+    page.tsx                ← All transactions, editable (server + TransactionListClient)
+  accounts/
+    page.tsx                ← All Accounts — bank accounts + transaction ledger
+    AccountsClient.tsx      ← Bank account balance editing
+  goals/
+    page.tsx                ← Goals (server)
+    GoalsClient.tsx         ← Goal CRUD (client)
+  plan/
+    page.tsx                ← YNAB-style monthly plan (server)
+    PlanClient.tsx          ← Month navigator, collapsible groups, inline edit
   components/
     LogoutButton.tsx
+    MobileNav.tsx           ← "use client" — bottom tab bar + More drawer (hidden on /login)
     PeriodSelector.tsx      ← "use client" — period dropdown
+    TransactionListClient.tsx ← "use client" — click-to-expand editable transaction list
+    UploadButton.tsx        ← "use client" — floating receipt upload FAB (hidden on /login)
   page.tsx                  ← Dashboard (server, 3-column layout)
-  layout.tsx
+  layout.tsx                ← Root layout — MobileNav + UploadButton injected here
   globals.css
 docs/
   architecture.md           ← this file
@@ -176,4 +213,7 @@ supabase/
     20240004_amount_nullable.sql
     20240005_fix_buckets_schema.sql
     20240006_add_long_budget_periods.sql ← biennial/triennial/quinquennial/decennial
+    20240007_add_bucket_group.sql        ← group_name on buckets
+    20240008_add_missing_bucket_columns.sql ← icon/color/currency/group_name IF NOT EXISTS
+    20240009_add_category_icon.sql       ← icon on categories
 ```

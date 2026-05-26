@@ -17,9 +17,12 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
   const [amount, setAmount] = useState(expense.amount ?? "");
   const [currency, setCurrency] = useState(expense.currency ?? "JMD");
   const [date, setDate] = useState(expense.date ?? "");
-  const [category, setCategory] = useState(expense.confirmed_category ?? "");
-  const suggestion = !expense.confirmed_category && expense.ai_suggested_category
+  const [categoryId, setCategoryId] = useState(expense.category_id ?? "");
+  const suggestion = !expense.category_id && expense.ai_suggested_category
     ? expense.ai_suggested_category
+    : null;
+  const suggestedCat = suggestion
+    ? categories.find((c) => c.name.toLowerCase() === suggestion.toLowerCase())
     : null;
   const [budgetId, setBudgetId] = useState(expense.bucket_id ?? "");
   const [saving, setSaving] = useState(false);
@@ -27,7 +30,7 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
 
   async function save(nextStatus: "confirmed" | "pending_review") {
     setSaving(true);
-    const matchedCat = categories.find((c) => c.name.toLowerCase() === category.toLowerCase());
+    const selectedCat = categories.find((c) => c.id === categoryId);
     await fetch(`/api/expenses/${expense.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -37,8 +40,8 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
         currency,
         date,
         bucket_id: budgetId || null,
-        confirmed_category: category || null,
-        category_id: matchedCat?.id ?? null,
+        confirmed_category: selectedCat?.name ?? null,
+        category_id: categoryId || null,
         status: nextStatus,
       }),
     });
@@ -110,20 +113,22 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
           </div>
           <div>
             <label className={labelCls}>Category</label>
-            <input
-              list="cat-suggestions"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Groceries"
-              className={inputCls}
-            />
-            <datalist id="cat-suggestions">
-              {categories.map((c) => <option key={c.id} value={c.name} />)}
-            </datalist>
-            {suggestion && !category && (
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className={selectCls}
+            >
+              <option value="">— no category —</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.icon ? `${c.icon} ` : ""}{c.name}
+                </option>
+              ))}
+            </select>
+            {suggestedCat && !categoryId && (
               <button
                 type="button"
-                onClick={() => setCategory(suggestion)}
+                onClick={() => setCategoryId(suggestedCat.id)}
                 className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-500 transition-colors"
               >
                 <span className="text-blue-400">✦</span>
