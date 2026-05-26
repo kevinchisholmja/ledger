@@ -16,7 +16,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const user = await requireUser();
-  const { name, type, balance, currency } = await req.json();
+  const { name, type, balance, currency, account_number, notes } = await req.json();
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
   const [created] = await db
@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
       type: type ?? "checking",
       balance: String(balance ?? 0),
       currency: currency ?? "JMD",
+      account_number: account_number || null,
+      notes: notes || null,
     })
     .returning();
 

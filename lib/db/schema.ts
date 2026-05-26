@@ -111,6 +111,8 @@ export const bankAccounts = pgTable("bank_accounts", {
   balance: numeric("balance", { precision: 12, scale: 2 }).notNull().default("0"),
   currency: text("currency").notNull().default("JMD"),
   active: boolean("active").notNull().default(true),
+  account_number: text("account_number"),
+  notes: text("notes"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
