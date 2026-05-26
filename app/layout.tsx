@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
+import UploadButton from "./components/UploadButton";
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -34,7 +35,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geist.variable} h-full`}>
-      <body className="min-h-full bg-zinc-950 font-sans antialiased">{children}</body>
+      <body className="min-h-full bg-zinc-950 font-sans antialiased">
+        {children}
+        <UploadButton />
+      </body>
     </html>
   );
 }
