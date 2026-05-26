@@ -1,13 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 type State = "idle" | "uploading" | "error";
 
 export default function UploadButton() {
   const router = useRouter();
+  const pathname = usePathname();
   const inputRef = useRef<HTMLInputElement>(null);
+
+  if (pathname === "/login") return null;
   const [state, setState] = useState<State>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 

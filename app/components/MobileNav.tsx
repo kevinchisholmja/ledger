@@ -25,6 +25,8 @@ export default function MobileNav() {
   const [showMore, setShowMore] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
+  if (pathname === "/login") return null;
+
   useEffect(() => {
     fetch("/api/review/count")
       .then((r) => r.ok ? r.json() : { count: 0 })
