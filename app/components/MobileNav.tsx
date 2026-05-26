@@ -6,10 +6,10 @@ import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
 const PRIMARY = [
-  { href: "/",            icon: "⊞", label: "Home" },
-  { href: "/review",      icon: "✓", label: "Review" },
-  { href: "/transactions",icon: "≡", label: "Transactions" },
-  { href: "/plan",        icon: "◫", label: "Plan" },
+  { href: "/",             icon: "⊞", label: "Home" },
+  { href: "/review",       icon: "✓", label: "Review" },
+  { href: "/transactions", icon: "≡", label: "Txns" },
+  { href: "/plan",         icon: "◫", label: "Plan" },
 ];
 
 const MORE_ITEMS = [
@@ -18,31 +18,6 @@ const MORE_ITEMS = [
   { href: "/budgets",     icon: "◎", label: "Budgets" },
   { href: "/categories",  icon: "◈", label: "Categories" },
 ];
-
-function NavTab({
-  href, icon, label, active, badge,
-  onClick,
-}: {
-  href?: string; icon: string; label: string; active?: boolean;
-  badge?: boolean; onClick?: () => void;
-}) {
-  const cls = `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 relative text-xs transition-colors ${
-    active ? "text-blue-600" : "text-gray-400 hover:text-gray-700"
-  }`;
-
-  const inner = (
-    <>
-      <span className="text-xl leading-none">{icon}</span>
-      <span>{label}</span>
-      {badge && (
-        <span className="absolute top-1.5 left-1/2 translate-x-1 w-2 h-2 bg-blue-500 rounded-full" />
-      )}
-    </>
-  );
-
-  if (onClick) return <button className={cls} onClick={onClick}>{inner}</button>;
-  return <Link href={href!} className={cls}>{inner}</Link>;
-}
 
 export default function MobileNav() {
   const pathname = usePathname();
@@ -57,6 +32,9 @@ export default function MobileNav() {
       .catch(() => {});
   }, [pathname]);
 
+  // Close drawer on navigation
+  useEffect(() => { setShowMore(false); }, [pathname]);
+
   async function signOut() {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,41 +44,45 @@ export default function MobileNav() {
     router.push("/login");
   }
 
-  const isMoreActive = MORE_ITEMS.some((i) => pathname === i.href);
+  const isMoreActive = MORE_ITEMS.some((i) => pathname.startsWith(i.href));
 
   return (
     <>
       {/* Backdrop */}
       {showMore && (
         <div
-          className="fixed inset-0 z-40 bg-black/30 md:hidden"
+          className="fixed inset-0 bg-black/40 md:hidden"
+          style={{ zIndex: 48 }}
           onClick={() => setShowMore(false)}
         />
       )}
 
-      {/* Slide-up drawer */}
+      {/* Slide-up drawer — sits directly above the tab bar */}
       <div
-        className={`fixed inset-x-0 bottom-16 z-50 md:hidden transition-transform duration-300 ease-out ${
-          showMore ? "translate-y-0" : "translate-y-full"
-        }`}
+        className="fixed inset-x-0 md:hidden transition-transform duration-300 ease-out"
+        style={{
+          zIndex: 49,
+          bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))",
+          transform: showMore ? "translateY(0)" : "translateY(110%)",
+          pointerEvents: showMore ? "auto" : "none",
+        }}
       >
-        <div className="mx-3 mb-2 rounded-2xl bg-white border border-gray-200 shadow-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100">
+        <div className="mx-3 mb-2 rounded-2xl bg-white border border-gray-200 shadow-2xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-100">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">More</p>
           </div>
-          <nav className="py-1">
+          <nav>
             {MORE_ITEMS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setShowMore(false)}
                 className={`flex items-center gap-4 px-5 py-3.5 text-sm transition-colors ${
-                  pathname === item.href
+                  pathname.startsWith(item.href)
                     ? "text-blue-600 font-medium bg-blue-50"
                     : "text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                <span className="text-lg w-6 text-center shrink-0">{item.icon}</span>
+                <span className="text-xl w-6 text-center shrink-0">{item.icon}</span>
                 {item.label}
               </Link>
             ))}
@@ -110,31 +92,55 @@ export default function MobileNav() {
               onClick={signOut}
               className="flex items-center gap-4 w-full text-sm text-red-500 hover:text-red-600 transition-colors"
             >
-              <span className="text-lg w-6 text-center shrink-0">→</span>
+              <span className="text-xl w-6 text-center shrink-0">↪</span>
               Sign out
             </button>
           </div>
         </div>
       </div>
 
-      {/* Bottom tab bar */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 flex md:hidden bg-white border-t border-gray-200 safe-area-inset-bottom">
-        {PRIMARY.map((item) => (
-          <NavTab
-            key={item.href}
-            href={item.href}
-            icon={item.icon}
-            label={item.label}
-            active={pathname === item.href}
-            badge={item.href === "/review" && pendingCount > 0}
-          />
-        ))}
-        <NavTab
-          icon="☰"
-          label="More"
-          active={isMoreActive || showMore}
-          onClick={() => setShowMore((v) => !v)}
-        />
+      {/* ── Bottom tab bar ─────────────────────────────────────────────────── */}
+      {/*
+        Structure: outer nav carries the safe-area bottom padding (for iOS home
+        indicator / Android gesture bar). Inner div has a fixed h-14 so the
+        tabs always have the same clickable height regardless of device.
+      */}
+      <nav
+        className="fixed inset-x-0 bottom-0 md:hidden bg-white border-t border-gray-200"
+        style={{ zIndex: 50, paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        <div className="flex h-14">
+          {PRIMARY.map((item) => {
+            const active = pathname === item.href;
+            const hasBadge = item.href === "/review" && pendingCount > 0;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors ${
+                  active ? "text-blue-600" : "text-gray-400"
+                }`}
+              >
+                <span className="text-xl leading-none">{item.icon}</span>
+                <span>{item.label}</span>
+                {hasBadge && (
+                  <span className="absolute top-2 right-[calc(50%-14px)] w-2 h-2 bg-blue-500 rounded-full" />
+                )}
+              </Link>
+            );
+          })}
+
+          {/* More button */}
+          <button
+            onClick={() => setShowMore((v) => !v)}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors ${
+              isMoreActive || showMore ? "text-blue-600" : "text-gray-400"
+            }`}
+          >
+            <span className="text-xl leading-none">☰</span>
+            <span>More</span>
+          </button>
+        </div>
       </nav>
     </>
   );
