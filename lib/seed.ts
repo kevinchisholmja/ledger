@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { categories, buckets } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 // ── Preset categories ─────────────────────────────────────────────────────────
 
@@ -69,26 +69,44 @@ const PRESET_BUDGETS: { name: string; categoryName: string; group: string }[] = 
 ];
 
 // ── Seeding function ──────────────────────────────────────────────────────────
+// Compares by name — only inserts presets the user doesn't already have.
+// Safe to call on every page load; existing user data is never touched.
 
 export async function seedPresetsIfEmpty(userId: string): Promise<void> {
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
+  // Fetch existing names in one round-trip each
+  const [existingCats, existingBucketRows] = await Promise.all([
+    db.select({ name: categories.name }).from(categories).where(eq(categories.user_id, userId)),
+    db.select({ name: buckets.name }).from(buckets).where(eq(buckets.user_id, userId)),
+  ]);
+
+  const existingCatNames = new Set(existingCats.map((c) => c.name));
+  const existingBucketNames = new Set(existingBucketRows.map((b) => b.name));
+
+  const missingCats = PRESET_CATEGORIES.filter((c) => !existingCatNames.has(c.name));
+  const missingBudgets = PRESET_BUDGETS.filter((b) => !existingBucketNames.has(b.name));
+
+  if (missingCats.length === 0 && missingBudgets.length === 0) return;
+
+  // Insert missing categories
+  if (missingCats.length > 0) {
+    await db
+      .insert(categories)
+      .values(missingCats.map((c) => ({ user_id: userId, name: c.name, icon: c.icon })));
+  }
+
+  if (missingBudgets.length === 0) return;
+
+  // Re-fetch all categories (existing + just inserted) to build the name→id map
+  const allCats = await db
+    .select({ id: categories.id, name: categories.name })
     .from(categories)
     .where(eq(categories.user_id, userId));
 
-  if ((row?.count ?? 0) > 0) return; // already seeded — exit fast
+  const catMap = new Map(allCats.map((c) => [c.name, c.id]));
 
-  // Insert categories, get back IDs
-  const inserted = await db
-    .insert(categories)
-    .values(PRESET_CATEGORIES.map((c) => ({ user_id: userId, name: c.name, icon: c.icon })))
-    .returning({ id: categories.id, name: categories.name });
-
-  const catMap = new Map(inserted.map((c) => [c.name, c.id]));
-
-  // Insert budgets, linking each to its matching category
+  // Insert missing budgets linked to their matching category
   await db.insert(buckets).values(
-    PRESET_BUDGETS.map((b) => ({
+    missingBudgets.map((b) => ({
       user_id: userId,
       name: b.name,
       period: "monthly" as const,
