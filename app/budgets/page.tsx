@@ -67,6 +67,7 @@ export default async function BudgetsPage({
           <SidebarItem href="/goals" icon="◇" label="Goals" />
           <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
+          <SidebarItem href="/register" icon="▦" label="Register" />
           <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
           <SidebarItem href="/budgets" icon="◎" label="Budgets" active />
           <SidebarItem href="/categories" icon="◈" label="Categories" />

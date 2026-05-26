@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { expenses, buckets, categories } from "@/lib/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { expenses, categories, buckets } from "@/lib/db/schema";
+import { eq, and, sql, asc } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
-import TransactionListClient from "@/app/components/TransactionListClient";
+import RegisterClient, { type RegisterRow } from "./RegisterClient";
 
 function SidebarItem({
   href, icon, label, active, badge,
@@ -29,43 +29,64 @@ function SidebarItem({
   );
 }
 
-export default async function TransactionsPage() {
+export default async function RegisterPage() {
   const user = await requireUser();
 
-  const [allExpenses, userBuckets, userCategories, pendingCount] = await Promise.all([
-    db.select({
-      id: expenses.id,
-      merchant: expenses.merchant,
-      amount: expenses.amount,
-      currency: expenses.currency,
-      date: expenses.date,
-      status: expenses.status,
-      source: expenses.source,
-      bucket_id: expenses.bucket_id,
-      category_id: expenses.category_id,
-      confirmed_category: expenses.confirmed_category,
-      notes: expenses.notes,
-      receipt_url: expenses.receipt_url,
-    })
+  const [rows, pendingCount] = await Promise.all([
+    db
+      .select({
+        id: expenses.id,
+        merchant: expenses.merchant,
+        amount: expenses.amount,
+        currency: expenses.currency,
+        date: expenses.date,
+        status: expenses.status,
+        source: expenses.source,
+        notes: expenses.notes,
+        receipt_url: expenses.receipt_url,
+        category_name: categories.name,
+        bucket_name: buckets.name,
+      })
       .from(expenses)
+      .leftJoin(categories, eq(expenses.category_id, categories.id))
+      .leftJoin(buckets, eq(expenses.bucket_id, buckets.id))
       .where(eq(expenses.user_id, user.id))
-      .orderBy(desc(expenses.date), desc(expenses.created_at)),
-
-    db.select({ id: buckets.id, name: buckets.name })
-      .from(buckets)
-      .where(eq(buckets.user_id, user.id))
-      .orderBy(buckets.name),
-
-    db.select({ id: categories.id, name: categories.name, icon: categories.icon })
-      .from(categories)
-      .where(eq(categories.user_id, user.id))
-      .orderBy(categories.name),
-
-    db.select({ count: sql<number>`count(*)::int` })
+      .orderBy(asc(expenses.date), asc(expenses.created_at)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
       .from(expenses)
       .where(and(eq(expenses.user_id, user.id), sql`status IN ('pending_review', 'pending_ocr')`))
-      .then((r) => r[0]?.count ?? 0),
+      .then((r: { count: number }[]) => r[0]?.count ?? 0),
   ]);
+
+  // Compute running balance (all current rows are debits — credits are $0 for now)
+  let balance = 0;
+  const registerRows: RegisterRow[] = rows.map((r) => {
+    const debit = r.amount ? Number(r.amount) : 0;
+    const credit = 0; // Phase A3+: will detect from direction column
+    balance = balance - debit + credit;
+    return {
+      id: r.id,
+      account_name: null,                  // Phase A3+: join to bank_accounts via account_id
+      date: r.date,
+      invoice_date: null,                  // Phase A3+: new column on transactions table
+      reference_num: null,                 // Phase A3+: new column on transactions table
+      merchant: r.merchant,
+      category_name: r.category_name ?? null,
+      bucket_name: r.bucket_name ?? null,
+      notes: r.notes,
+      source: r.source,
+      cleared: r.status === "confirmed",   // Phase A3+: replaced by real cleared boolean
+      debit: r.amount,
+      credit: null,                        // Phase A3+: credit transactions
+      currency: r.currency,
+      running_balance: balance,
+      receipt_url: r.receipt_url,
+    };
+  });
+
+  const totalRows = registerRows.length;
+  const confirmedRows = registerRows.filter((r) => r.cleared).length;
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900">
@@ -85,8 +106,8 @@ export default async function TransactionsPage() {
           <SidebarItem href="/plan" icon="◫" label="Plan" />
           <SidebarItem href="/goals" icon="◇" label="Goals" />
           <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
-          <SidebarItem href="/transactions" icon="≡" label="Transactions" active />
-          <SidebarItem href="/register" icon="▦" label="Register" />
+          <SidebarItem href="/transactions" icon="≡" label="Transactions" />
+          <SidebarItem href="/register" icon="▦" label="Register" active />
           <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
           <SidebarItem href="/budgets" icon="◎" label="Budgets" />
           <SidebarItem href="/categories" icon="◈" label="Categories" />
@@ -103,22 +124,28 @@ export default async function TransactionsPage() {
         {/* Mobile header */}
         <header className="md:hidden sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
           <Link href="/" className="text-gray-400 hover:text-gray-700 transition-colors text-lg">‹</Link>
-          <h1 className="text-base font-semibold text-gray-900">Transactions</h1>
-          <span className="ml-auto text-xs text-gray-400">{allExpenses.length} total</span>
+          <h1 className="text-base font-semibold text-gray-900">Register</h1>
         </header>
 
         {/* Desktop header */}
         <div className="hidden md:flex sticky top-0 z-10 bg-white border-b border-gray-200 px-8 py-3 items-center justify-between">
-          <h1 className="text-base font-semibold text-gray-900">Transactions</h1>
-          <span className="text-xs text-gray-400">{allExpenses.length} total</span>
+          <div>
+            <h1 className="text-base font-semibold text-gray-900">Transaction Register</h1>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {totalRows} transactions · {confirmedRows} confirmed ·{" "}
+              {totalRows - confirmedRows} pending
+            </p>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            <span>
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />
+              Phase A2 — columns marked ─ activate in Phase A3
+            </span>
+          </div>
         </div>
 
-        <main className="px-4 md:px-8 py-4 pb-24 max-w-5xl">
-          <TransactionListClient
-            transactions={allExpenses}
-            budgets={userBuckets}
-            categories={userCategories}
-          />
+        <main className="px-4 md:px-6 py-6 pb-24">
+          <RegisterClient rows={registerRows} />
         </main>
       </div>
     </div>

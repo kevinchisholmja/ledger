@@ -492,6 +492,7 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
           <SidebarItem href="/goals" icon="◇" label="Goals" active />
           <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
+          <SidebarItem href="/register" icon="▦" label="Register" />
           <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
           <SidebarItem href="/budgets" icon="◎" label="Budgets" />
           <SidebarItem href="/categories" icon="◈" label="Categories" />
