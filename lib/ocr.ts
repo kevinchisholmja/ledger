@@ -1,30 +1,55 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-export interface OcrResult {
-  merchant: string;
-  amount: number;
-  currency: string;
-  date: string;
-  ai_suggested_category: string;
-  confidence: number;
+export interface OcrLists {
+  categories: { id: string; name: string }[];
+  budgets: { id: string; name: string }[];
 }
 
-const OCR_PROMPT = `You are a receipt parser. Analyse the receipt image and extract the following fields.
+export interface OcrResult {
+  merchant: string;
+  amount: number | null;
+  currency: string;
+  date: string;
+  category_id: string | null;
+  bucket_id: string | null;
+  note: string | null;
+}
+
+function buildPrompt(lists: OcrLists): string {
+  const catJson = JSON.stringify(lists.categories.map((c) => ({ id: c.id, name: c.name })));
+  const budgetJson = JSON.stringify(lists.budgets.map((b) => ({ id: b.id, name: b.name })));
+
+  return `You are a receipt parser. Extract data from this receipt and match it to the user's existing categories and budgets.
+
+CATEGORIES (pick one):
+${catJson}
+
+BUDGETS (pick one):
+${budgetJson}
+
 Return ONLY valid JSON — no markdown fences, no explanation, no extra keys.
 
 Schema:
 {
-  "merchant": "string — business name",
-  "amount": number — total amount paid (numeric, no currency symbol),
+  "merchant": "string — business name shown on receipt",
+  "amount": number or null — total amount paid (numeric only, no currency symbol),
   "currency": "string — 3-letter ISO code, default JMD if unclear",
-  "date": "string — ISO 8601 date (YYYY-MM-DD), default to today if unclear",
-  "ai_suggested_category": "string — one of: Food & Drink, Groceries, Transport, Utilities, Shopping, Health, Entertainment, Travel, Business, Other",
-  "confidence": number — 0.0–1.0 reflecting your confidence in the extraction
-}`;
+  "date": "string — ISO 8601 date YYYY-MM-DD, use today if not shown",
+  "category_id": "string or null — id from the CATEGORIES list that best fits this purchase, null if no good match",
+  "bucket_id": "string or null — id from the BUDGETS list that best fits this purchase, null if no good match",
+  "note": "string or null — ONLY if no good category or budget match exists, suggest a new name in one sentence (e.g. \\"Consider adding a Pet Supplies category\\"). Otherwise null."
+}
+
+Rules:
+- Pick the single best match for category_id and bucket_id. Use null if confidence is below 70%.
+- category_id and bucket_id may differ — a receipt from a gym could be category \\"Sports & Fitness\\" and budget \\"Sports & Fitness\\".
+- Do not invent IDs. Only use IDs from the lists above.`;
+}
 
 export async function runOcr(
   imageBuffer: Buffer,
-  mimeType: string = "image/jpeg"
+  mimeType: string = "image/jpeg",
+  lists: OcrLists = { categories: [], budgets: [] }
 ): Promise<{ result: OcrResult; rawText: string }> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
   const base64 = imageBuffer.toString("base64");
@@ -50,7 +75,7 @@ export async function runOcr(
     messages: [
       {
         role: "user",
-        content: [contentBlock, { type: "text", text: OCR_PROMPT }],
+        content: [contentBlock, { type: "text", text: buildPrompt(lists) }],
       },
     ],
   });

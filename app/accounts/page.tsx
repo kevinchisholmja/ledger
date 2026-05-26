@@ -47,6 +47,8 @@ export default async function AccountsPage() {
       bucket_id: expenses.bucket_id,
       category_id: expenses.category_id,
       confirmed_category: expenses.confirmed_category,
+      notes: expenses.notes,
+      receipt_url: expenses.receipt_url,
     })
     .from(expenses)
     .where(eq(expenses.user_id, user.id))

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { seedPresetsIfEmpty } from "@/lib/seed";
 import { db } from "@/lib/db/client";
 import { buckets, expenses } from "@/lib/db/schema";
 import { eq, and, or, ne, gte, lte, isNotNull, desc, sql } from "drizzle-orm";
@@ -126,6 +127,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ period?: string }>;
 }) {
   const user = await requireUser();
+  await seedPresetsIfEmpty(user.id);
   const { period: rawPeriod } = await searchParams;
   const view: ViewPeriod = isValidViewPeriod(rawPeriod) ? rawPeriod : "month";
 

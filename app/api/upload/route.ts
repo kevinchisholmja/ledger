@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { requireUser } from "@/lib/auth";
 import { runOcr } from "@/lib/ocr";
+import { db } from "@/lib/db/client";
+import { categories, buckets } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
@@ -48,6 +51,16 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await file.arrayBuffer();
   const imageBuffer = Buffer.from(arrayBuffer);
 
+  // Fetch user's category and budget lists for list-grounded OCR
+  const [userCategories, userBuckets] = await Promise.all([
+    db.select({ id: categories.id, name: categories.name })
+      .from(categories)
+      .where(eq(categories.user_id, user.id)),
+    db.select({ id: buckets.id, name: buckets.name })
+      .from(buckets)
+      .where(and(eq(buckets.user_id, user.id), eq(buckets.active, true))),
+  ]);
+
   let receiptUrl: string | null = null;
   const { error: uploadError } = await supabase.storage
     .from("receipts")
@@ -65,7 +78,7 @@ export async function POST(req: NextRequest) {
   let rawOcrText: string | null = null;
 
   try {
-    const ocr = await runOcr(imageBuffer, mimeType);
+    const ocr = await runOcr(imageBuffer, mimeType, { categories: userCategories, budgets: userBuckets });
     ocrResult = ocr.result;
     rawOcrText = ocr.rawText;
     status = "pending_review";
@@ -83,7 +96,9 @@ export async function POST(req: NextRequest) {
     amount: ocrResult?.amount ?? null,
     currency: ocrResult?.currency ?? "JMD",
     date: ocrResult?.date ?? today,
-    ai_suggested_category: ocrResult?.ai_suggested_category ?? null,
+    category_id: ocrResult?.category_id ?? null,
+    bucket_id: ocrResult?.bucket_id ?? null,
+    notes: ocrResult?.note ?? null,
     created_at: new Date().toISOString(),
   });
 

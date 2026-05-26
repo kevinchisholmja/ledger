@@ -25,6 +25,7 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
     ? categories.find((c) => c.name.toLowerCase() === suggestion.toLowerCase())
     : null;
   const [budgetId, setBudgetId] = useState(expense.bucket_id ?? "");
+  const [notes, setNotes] = useState(expense.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
@@ -42,6 +43,7 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
         bucket_id: budgetId || null,
         confirmed_category: selectedCat?.name ?? null,
         category_id: categoryId || null,
+        notes: notes || null,
         status: nextStatus,
       }),
     });
@@ -143,6 +145,16 @@ export default function ReviewCard({ expense, categories, budgets }: Props) {
               <option value="">— no budget —</option>
               {budgets.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
+          </div>
+          <div className="col-span-2">
+            <label className={labelCls}>Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add a note…"
+              rows={2}
+              className={`${inputCls} resize-none`}
+            />
           </div>
         </div>
 

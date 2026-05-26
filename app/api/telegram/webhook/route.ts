@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import type { TelegramUpdate } from "@/types/telegram";
 import { runOcr, type OcrResult } from "@/lib/ocr";
+import { db } from "@/lib/db/client";
+import { categories, buckets } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Clients (initialised lazily so cold-start doesn't throw on missing env vars
@@ -108,6 +111,16 @@ export async function POST(req: NextRequest) {
   const userId = process.env.LEDGER_USER_ID!; // Supabase auth UUID
   const today = new Date().toISOString().split("T")[0];
 
+  // Fetch user's category and budget lists once for list-grounded OCR
+  const [userCategories, userBuckets] = await Promise.all([
+    db.select({ id: categories.id, name: categories.name })
+      .from(categories)
+      .where(eq(categories.user_id, userId)),
+    db.select({ id: buckets.id, name: buckets.name })
+      .from(buckets)
+      .where(and(eq(buckets.user_id, userId), eq(buckets.active, true))),
+  ]);
+
   // ── 3. Photo / document branch ────────────────────────────────────────────
   // Telegram sends photos as message.photo (compressed JPEG) or
   // message.document (when "Send as file" is chosen — PDF or raw image).
@@ -126,7 +139,6 @@ export async function POST(req: NextRequest) {
   }
 
   if (fileId) {
-
     let receiptUrl: string | null = null;
     let ocrResult: OcrResult | null = null;
     let rawOcrText: string | null = null;
@@ -138,10 +150,7 @@ export async function POST(req: NextRequest) {
       imageBuffer = await downloadTelegramFile(fileId);
     } catch (err) {
       console.error("Image download failed:", err);
-      await sendTelegramMessage(
-        chatId,
-        "⚠️ Couldn't download your image. Please try again."
-      );
+      await sendTelegramMessage(chatId, "⚠️ Couldn't download your image. Please try again.");
       return NextResponse.json({ ok: true });
     }
 
@@ -150,18 +159,16 @@ export async function POST(req: NextRequest) {
       receiptUrl = await uploadReceiptImage(imageBuffer, telegramUserId);
     } catch (err) {
       console.error("Storage upload failed:", err);
-      // Still attempt OCR even if storage fails
     }
 
-    // Run OCR — if it fails we store with status 'pending_ocr' for retry
+    // Run OCR with list-grounded prompting
     try {
-      const ocr = await runOcr(imageBuffer, fileMime);
+      const ocr = await runOcr(imageBuffer, fileMime, { categories: userCategories, budgets: userBuckets });
       ocrResult = ocr.result;
       rawOcrText = ocr.rawText;
       status = "pending_review";
     } catch (err) {
       console.error("OCR failed:", err);
-      // status stays 'pending_ocr'
     }
 
     // Insert expense row
@@ -176,7 +183,9 @@ export async function POST(req: NextRequest) {
         amount: ocrResult?.amount ?? null,
         currency: ocrResult?.currency ?? "JMD",
         date: ocrResult?.date ?? today,
-        ai_suggested_category: ocrResult?.ai_suggested_category ?? null,
+        category_id: ocrResult?.category_id ?? null,
+        bucket_id: ocrResult?.bucket_id ?? null,
+        notes: ocrResult?.note ?? null,
         created_at: new Date().toISOString(),
       });
     } catch (err) {
@@ -188,19 +197,18 @@ export async function POST(req: NextRequest) {
     // Reply
     if (ocrResult) {
       const currency = ocrResult.currency || "JMD";
-      const amountDisplay =
-        currency === "JMD"
-          ? `JMD ${ocrResult.amount.toLocaleString()}`
-          : `${currency} ${ocrResult.amount}`;
+      const amountDisplay = ocrResult.amount != null
+        ? (currency === "JMD" ? `JMD ${ocrResult.amount.toLocaleString()}` : `${currency} ${ocrResult.amount}`)
+        : "amount unknown";
+      const catName = ocrResult.category_id
+        ? (userCategories.find((c) => c.id === ocrResult!.category_id)?.name ?? "Uncategorised")
+        : "Uncategorised";
       await sendTelegramMessage(
         chatId,
-        `✅ Got it — ${ocrResult.merchant} • ${amountDisplay} • ${ocrResult.ai_suggested_category}. Open Ledger to confirm.`
+        `✅ Got it — ${ocrResult.merchant} • ${amountDisplay} • ${catName}. Open Ledger to confirm.`
       );
     } else {
-      await sendTelegramMessage(
-        chatId,
-        "📎 Image saved. OCR is pending — open Ledger to review and categorise."
-      );
+      await sendTelegramMessage(chatId, "📎 Image saved. OCR is pending — open Ledger to review and categorise.");
     }
 
     return NextResponse.json({ ok: true });
@@ -210,7 +218,6 @@ export async function POST(req: NextRequest) {
   if (message.text) {
     const text = message.text.trim();
 
-    // Ignore Telegram commands like /start
     if (text.startsWith("/")) {
       await sendTelegramMessage(
         chatId,
@@ -230,7 +237,6 @@ export async function POST(req: NextRequest) {
         amount: null,
         currency: "JMD",
         date: today,
-        ai_suggested_category: null,
         created_at: new Date().toISOString(),
       });
     } catch (err) {
@@ -239,10 +245,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    await sendTelegramMessage(
-      chatId,
-      `📝 Manual entry saved. Open Ledger to fill in the details.`
-    );
+    await sendTelegramMessage(chatId, "📝 Manual entry saved. Open Ledger to fill in the details.");
     return NextResponse.json({ ok: true });
   }
 

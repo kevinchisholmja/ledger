@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { runOcr } from "@/lib/ocr";
+import { db } from "@/lib/db/client";
+import { categories, buckets } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
@@ -55,7 +58,17 @@ export async function POST(req: NextRequest) {
   const today = new Date().toISOString().split("T")[0];
   const supabase = getSupabaseAdmin();
 
-  // ── 3. Upload to Supabase Storage ─────────────────────────────────────────
+  // ── 3. Fetch user's lists for list-grounded OCR ───────────────────────────
+  const [userCategories, userBuckets] = await Promise.all([
+    db.select({ id: categories.id, name: categories.name })
+      .from(categories)
+      .where(eq(categories.user_id, userId)),
+    db.select({ id: buckets.id, name: buckets.name })
+      .from(buckets)
+      .where(and(eq(buckets.user_id, userId), eq(buckets.active, true))),
+  ]);
+
+  // ── 4. Upload to Supabase Storage ─────────────────────────────────────────
   const ext = mimeType === "application/pdf" ? "pdf" : mimeType.split("/")[1];
   const storagePath = `${userId}/${randomUUID()}.${ext}`;
   const arrayBuffer = await file.arrayBuffer();
@@ -73,13 +86,13 @@ export async function POST(req: NextRequest) {
     console.error("Storage upload error:", uploadError.message);
   }
 
-  // ── 4. Run OCR ────────────────────────────────────────────────────────────
+  // ── 5. Run OCR ────────────────────────────────────────────────────────────
   let status = "pending_ocr";
   let ocrResult = null;
   let rawOcrText: string | null = null;
 
   try {
-    const ocr = await runOcr(imageBuffer, mimeType);
+    const ocr = await runOcr(imageBuffer, mimeType, { categories: userCategories, budgets: userBuckets });
     ocrResult = ocr.result;
     rawOcrText = ocr.rawText;
     status = "pending_review";
@@ -87,7 +100,7 @@ export async function POST(req: NextRequest) {
     console.error("OCR failed:", err);
   }
 
-  // ── 5. Insert expense ─────────────────────────────────────────────────────
+  // ── 6. Insert expense ─────────────────────────────────────────────────────
   const { error: insertError } = await supabase.from("expenses").insert({
     user_id: userId,
     source: "shortcut",
@@ -98,7 +111,9 @@ export async function POST(req: NextRequest) {
     amount: ocrResult?.amount ?? null,
     currency: ocrResult?.currency ?? "JMD",
     date: ocrResult?.date ?? today,
-    ai_suggested_category: ocrResult?.ai_suggested_category ?? null,
+    category_id: ocrResult?.category_id ?? null,
+    bucket_id: ocrResult?.bucket_id ?? null,
+    notes: ocrResult?.note ?? null,
     created_at: new Date().toISOString(),
   });
 
@@ -107,7 +122,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to save expense" }, { status: 500 });
   }
 
-  // ── 6. Respond ────────────────────────────────────────────────────────────
+  // ── 7. Respond ────────────────────────────────────────────────────────────
   if (ocrResult) {
     return NextResponse.json({
       ok: true,
@@ -116,7 +131,6 @@ export async function POST(req: NextRequest) {
       amount: ocrResult.amount,
       currency: ocrResult.currency,
       date: ocrResult.date,
-      category: ocrResult.ai_suggested_category,
     });
   }
 
