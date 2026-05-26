@@ -524,13 +524,6 @@ export default async function DashboardPage({
         </aside>
       </div>
 
-      {/* ── Mobile bottom nav ─────────────────────────────────────────────── */}
-      <nav className="fixed bottom-0 inset-x-0 border-t border-gray-200 bg-white flex md:hidden z-20">
-        <MobileNavItem href="/" icon="⊞" label="Home" active />
-        <MobileNavItem href="/review" icon="✓" label="Review" badge={pendingCount > 0} />
-        <MobileNavItem href="/transactions" icon="≡" label="Transactions" />
-        <MobileNavItem href="/budgets" icon="◎" label="Budgets" />
-      </nav>
     </div>
   );
 }
@@ -569,17 +562,3 @@ function SidebarItem({ href, icon, label, active, badge }: {
   );
 }
 
-function MobileNavItem({ href, icon, label, active, badge }: {
-  href: string; icon: string; label: string; active?: boolean; badge?: boolean;
-}) {
-  return (
-    <Link href={href}
-      className={`flex-1 flex flex-col items-center py-2.5 text-xs gap-1 relative transition-colors ${
-        active ? "text-blue-600" : "text-gray-400 hover:text-gray-700"
-      }`}>
-      <span className="text-lg">{icon}</span>
-      {label}
-      {badge && <span className="absolute top-2 left-1/2 translate-x-1 w-2 h-2 bg-blue-500 rounded-full" />}
-    </Link>
-  );
-}

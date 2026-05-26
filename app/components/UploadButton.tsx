@@ -57,7 +57,7 @@ export default function UploadButton() {
         disabled={isUploading}
         title={isError ? errorMsg : "Upload a receipt"}
         className={`
-          fixed bottom-6 right-6 z-50
+          fixed bottom-20 md:bottom-6 right-6 z-30
           flex items-center gap-2
           h-14 rounded-full shadow-lg
           text-white text-sm font-semibold
