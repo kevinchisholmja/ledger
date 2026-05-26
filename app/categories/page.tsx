@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { seedPresetsIfEmpty } from "@/lib/seed";
 import { db } from "@/lib/db/client";
 import { categories, expenses } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -31,6 +32,7 @@ function SidebarItem({
 
 export default async function CategoriesPage() {
   const user = await requireUser();
+  await seedPresetsIfEmpty(user.id);
 
   const [allCategories, pendingCount] = await Promise.all([
     db.select().from(categories).where(eq(categories.user_id, user.id)).orderBy(categories.name),

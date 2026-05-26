@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { seedPresetsIfEmpty } from "@/lib/seed";
 import { db } from "@/lib/db/client";
 import { buckets, categories, expenses } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -35,6 +36,7 @@ export default async function BudgetsPage({
   searchParams: Promise<{ category?: string }>;
 }) {
   const user = await requireUser();
+  await seedPresetsIfEmpty(user.id);
   const { category } = await searchParams;
 
   const [allBuckets, allCategories, pendingCount] = await Promise.all([
