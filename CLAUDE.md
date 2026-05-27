@@ -1,102 +1,72 @@
 @AGENTS.md
+@rules/code-style.md
+@rules/security.md
+@rules/database.md
+@rules/ui-standards.md
+@rules/api-conventions.md
 
-# Ledger — Project Rules for AI Agents
+# Ledger — AI Agent Instructions
 
-## Stack facts (do not assume — read these)
+## Read this first
+Before making any architectural decision, read **`docs/SPEC.md`** — it is the single
+source of truth for the vision, current state, v2 data model, and migration plan.
 
-- Next.js version: **16.2.6** (NOT 14). Check `node_modules/next/package.json` before writing any Next.js-specific code.
-- Tailwind: **v4**. Import syntax is `@import "tailwindcss"` — NOT `@tailwind base/components/utilities`.
-- Database client: **Drizzle ORM** with `postgres` driver. NOT Supabase JS for queries.
-- Auth/Storage: **Supabase JS** only for auth sessions and storage uploads.
-- Postgres connection: port **6543** (transaction mode pooler) — requires `prepare: false` in the postgres client config.
+## Stack (quick reference)
+| Layer | Technology | Gotcha |
+|-------|-----------|--------|
+| Framework | Next.js **16.2.6** App Router | Check `node_modules/next/package.json` before using any Next.js API |
+| Styling | Tailwind **v4** | `@import "tailwindcss"` — NOT `@tailwind` directives |
+| DB ORM | Drizzle + `postgres` driver | `prepare: false`, port **6543** |
+| Auth + Storage | Supabase JS (`@supabase/ssr`) | Not for DB queries — Drizzle only |
+| AI | `claude-sonnet-4-6` | Do not change model without testing on receipts |
 
-## Security rules
+## Current phase: Phase A2
+The app is in active **data model transition** (expenses → transactions).
+See `docs/SPEC.md §6` for the full migration plan.
 
-- Every Drizzle query MUST include explicit `WHERE user_id = [authenticated user id]` — service role bypasses RLS entirely.
-- Never use the anon Supabase client for server-side DB queries.
+**Right now:**
+- DB table `expenses` still holds all transactions (debit-only model)
+- DB table `transactions` does not exist yet (created in Phase A1)
+- Do NOT rename `expenses` or `buckets` — that happens in Phase A3/A6
+- New features: write against `transactions` once Phase A1 is complete
 
-## Package requirements
+## DB table names (current — do not rename yet)
+| UI name | DB table | Migration phase |
+|---------|----------|-----------------|
+| Transaction | `expenses` | Renamed to `transactions` in Phase A3 |
+| Budget | `buckets` | Stays as `buckets` forever |
+| — | `bank_entries` | Dropped in Phase A6 |
 
-- `@supabase/ssr` is required for middleware auth in App Router — not just `@supabase/supabase-js`.
-- Drizzle packages: `drizzle-orm`, `postgres` (runtime); `drizzle-kit` (dev only).
+## Three rules that are never optional
+1. `await requireUser()` — first line of every route handler and server component
+2. `.where(eq(table.user_id, user.id))` — every Drizzle query
+3. Confirming a transaction sets **three fields**: `confirmed_category` (text) + `category_id` (UUID) + `bucket_id` (UUID)
 
-## Schema facts
+## Currency
+Always `formatJMD()` or `formatCurrency()` from `lib/format.ts` — never inline.
 
-- `expenses.amount` is nullable (migration 20240004 dropped NOT NULL) — Drizzle schema must NOT use `.notNull()` on this column.
-- `expense_source` enum has values: `telegram`, `shortcut`, `manual`, `csv` — all four must be in the schema.
-- Supabase Storage bucket is named `receipts`. Upload paths must NOT include `receipts/` prefix — the bucket name is already in the URL.
+## Budget and Category fields
+Always strict `<select>` dropdowns from DB — never `<input>` or datalist.
 
-## Naming conventions (P3.5 — do not revert)
+## Navigation
+9 sidebar items (in order): Dashboard, Plan, Goals, Review, Transactions, Register,
+All Accounts, Budgets, Categories. Every new page must include all 9 with the correct
+`active` prop. Copy the pattern from `app/categories/page.tsx`.
 
-- UI uses **"budget/budgets"** (not bucket) and **"transaction/transactions"** (not expense).
-- Routes: `/budgets`, `/transactions`, `/api/budgets`, `/api/budgets/[id]`.
-- DB tables remain `buckets` and `expenses` — do not rename them.
-- Primary accent colour is **`blue-600` (`#2563EB`)** — no `indigo` anywhere in the codebase.
-- Currency formatting: always use `formatJMD()` or `formatCurrency()` from `lib/format.ts` — never inline `Intl.NumberFormat` or `J$${...}`.
+## Migrations
+Apply via Supabase Dashboard SQL Editor → project `evdbqegscpeaabzzcwvw`.
+File naming: `supabase/migrations/2024NNNN_description.sql`. Always use `IF NOT EXISTS`.
 
-## Known patterns
-
-- `buckets_summary` is a Postgres view with `security_invoker = true`. Drizzle service-role queries bypass RLS regardless — always add `WHERE user_id = X`.
-- `pending_ocr` and `pending_review` expenses both need to appear in the review queue. `pending_ocr` items should show a "retry OCR" action.
-- Confirming an expense must set both `confirmed_category` (text) AND `category_id` (UUID FK) — `buckets_summary` aggregates on `category_id`, not on `confirmed_category`.
-- Confirming an expense should also set `bucket_id` — this is how `buckets_summary` counts month_spent. Without it all budget cards show $0.
-
-## Phase 4 additions (P4 — 2026-05-24)
-
-- `expenses.bucket_id` (UUID FK → buckets) was added to the Drizzle schema. The PATCH route at `app/api/expenses/[id]/route.ts` now accepts `bucket_id`.
-- ReviewCard now has a Budget dropdown — it saves `bucket_id` alongside `category_id` when confirming.
-- iOS Shortcut endpoint: `POST /api/shortcut/upload` — multipart form-data, auth via `x-shortcut-secret` header matching `SHORTCUT_SECRET` env var. Source = `shortcut`.
-- `docs/ios-shortcut.md` — step-by-step Shortcut setup guide.
-
-## Phase 5 additions (P5 — 2026-05-25)
-
-### UI redesign
-- Dark navy sidebar (`bg-[#1B1F3B]`) replacing white sidebar — YNAB-style.
-- 3-column layout on md+: navy sidebar | center content | white right summary panel (sticky, `w-72`).
-- Full-width status banner above center content — green (`bg-emerald-600`) when under budget, blue (`bg-blue-600`) when within 80–99%, red (`bg-red-600`) when over.
-- Login page: split layout, Google OAuth primary CTA, magic link secondary.
-- Light theme across all pages: `bg-gray-50` page, white cards, `border-gray-200`.
-
-### Period view selector
-- `lib/period.ts` — shared (non-client) module holding `ViewPeriod` type, `isValidViewPeriod()`, `BUDGET_PERIOD_DAYS`, `VIEW_PERIOD_DAYS`. Must NOT be a client component — server pages import from here.
-- Dashboard (`app/page.tsx`) accepts `?period=week|fortnight|month|quarter|year` via `searchParams`. Defaults to `month`.
-- `app/components/PeriodSelector.tsx` — `"use client"` dropdown that pushes `?period=X` to the URL. Imports `ViewPeriod` from `lib/period.ts`.
-- **`buckets_summary` view is no longer used in the dashboard.** Replaced by a direct Drizzle query on `buckets` + `expenses` with a dynamic date range, so spending aggregates correctly for any period window.
-- Pro-rating formula: `proratedAmount = budget.amount × (viewDays / nativeBudgetDays)`. Activity = SUM of expenses in the date window for that bucket. Available = proratedAmount − activity.
-- Fortnight anchor: days 1–14 = first half, days 15–end = second half of the month.
-- Quarter ranges: Q1=Jan–Mar, Q2=Apr–Jun, Q3=Jul–Sep, Q4=Oct–Dec.
-
-### Long-horizon budget periods
-- `budget_period` enum extended with: `biennial` (2yr), `triennial` (3yr), `quinquennial` (5yr), `decennial` (10yr).
-- Migration: `supabase/migrations/20240006_add_long_budget_periods.sql` — run once in Supabase Dashboard SQL editor if not yet applied.
-- `BudgetsClient.tsx` PERIODS array updated with human-readable labels for all period types.
-- When a budget's native period differs from the view window, the budget row subtitle shows the native amount and period (e.g. `$50,000 / monthly`) so the user understands the pro-rating.
-
-### Plan page (P5 — 2026-05-25)
-- Route: `/plan` — YNAB-style monthly budget planning view.
-- `app/plan/page.tsx` — server component. Accepts `?month=YYYY-MM`, queries `buckets` + `expenses`, pro-rates all periods to monthly (`nativeAmount × AVG_MONTH_DAYS / nativePeriodDays`), groups by `group_name`, passes `PlanGroup[]` to `PlanClient`.
-- `app/plan/PlanClient.tsx` — client component. 3-column layout (same navy sidebar), month navigator (`‹ May 2026 ›`), status banner, YNAB-style table: CATEGORY | ASSIGNED | ACTIVITY | AVAILABLE. Collapsible groups. Inline ASSIGNED editing: click → input → back-calculates native amount → `PATCH /api/budgets/:id` → `router.refresh()`.
-- Back-calculate formula: `newNativeAmount = editedMonthly × (nativePeriodDays / AVG_MONTH_DAYS)`.
-- `app/api/budgets/rename-group/route.ts` — `PATCH {oldName, newName}` renames all buckets in a group for the user.
-- `BudgetsClient` accepts `defaultGroup` prop — Plan page "Add budget to [Group]" links pass `?group=X`.
-
-### Budget groups
-- `group_name text NOT NULL DEFAULT 'Uncategorized'` on `buckets` table.
-- Migration: `supabase/migrations/20240007_add_bucket_group.sql` — must be applied in Supabase Dashboard SQL editor.
-
-### Missing columns catch-up (2026-05-25)
-- `icon`, `color`, `currency` were in the original schema but may be absent in live DBs set up via the Supabase dashboard UI.
-- Migration: `supabase/migrations/20240008_add_missing_bucket_columns.sql` — adds all four potentially missing columns (`icon`, `color`, `currency`, `group_name`) with `IF NOT EXISTS`. Run this instead of 20240007 if both are pending.
-- `categories.icon` — added via migration 20240009. Applied to production DB directly.
-
-### Categories management (2026-05-25)
-- Budgets page (`/budgets`) now has two tabs: **Budgets** and **Categories**.
-- Categories are used for expense classification in the review flow (separate from budget groups).
-- API: `POST /api/categories` (create), `DELETE /api/categories/[id]` (delete), `GET /api/categories` (list).
-- ReviewCard category field is now a text `<input>` with `<datalist>` suggestions — users can type new categories or pick existing ones.
-
-### All Accounts page (2026-05-25)
-- Route: `/accounts` — YNAB-style ledger showing all expenses.
-- Server component queries all expenses + buckets, groups by date.
-- Desktop table: Date | Payee | Budget | Category | Source | Outflow.
-- Added to nav sidebar (icon ⬡) across Dashboard, Plan, and Accounts pages.
+## Key files
+| File | Purpose |
+|------|---------|
+| `docs/SPEC.md` | Master project spec — vision, model v2, migration plan |
+| `lib/db/schema.ts` | All table definitions — single source of truth |
+| `lib/auth.ts` | `requireUser()` — call this first, always |
+| `lib/format.ts` | Currency helpers — use these, never inline |
+| `lib/ocr.ts` | Receipt OCR via Claude Vision |
+| `lib/seed.ts` | Preset category + budget seeding |
+| `lib/period.ts` | Period math (non-client module) |
+| `app/components/TransactionModal.tsx` | Reusable transaction edit modal |
+| `app/components/MobileNav.tsx` | Bottom nav — guard against /login |
+| `app/components/UploadButton.tsx` | Receipt FAB — guard against /login |

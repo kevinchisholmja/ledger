@@ -1,0 +1,67 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push origin main)",
+      "Bash(git push origin main --dry-run)",
+      "Bash(git branch*)",
+      "Bash(git stash*)",
+      "Bash(npm run*)",
+      "Bash(npx tsc*)",
+      "Bash(npx *)",
+      "Bash(ls*)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(mkdir -p *)",
+      "Bash(sed *)",
+      "Bash(cat *)",
+      "Bash(echo *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(vercel logs*)",
+      "Bash(vercel env*)",
+      "Bash(gh *)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(git checkout -- *)",
+      "Bash(rm -rf *)",
+      "Bash(DROP TABLE*)",
+      "Bash(DROP DATABASE*)",
+      "Bash(TRUNCATE *)",
+      "Bash(vercel --prod*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/kevin/Documents/GitHub/ledger && npx tsc --noEmit 2>&1 | grep -E '^.*\\.tsx?\\([0-9]+,[0-9]+\\): error' | head -8 || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=\"$1\"; if echo \"$cmd\" | grep -qE '(push --force|reset --hard|DROP TABLE|TRUNCATE|rm -rf)'; then echo \"BLOCKED: destructive operation requires explicit user confirmation\"; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
