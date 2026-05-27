@@ -289,6 +289,11 @@ CREATE TABLE transactions (
   status                text NOT NULL DEFAULT 'confirmed',
   -- status values: 'pending_ocr' | 'pending_review' | 'confirmed'
 
+  -- Accountant flag
+  flagged               boolean NOT NULL DEFAULT false,
+  -- true = needs accountant attention (split allocation, capital asset question, etc.)
+  -- The notes field captures WHY it was flagged. /reports shows all flagged rows.
+
   created_at            timestamptz DEFAULT now(),
   updated_at            timestamptz DEFAULT now()
 );
@@ -339,10 +344,22 @@ Expense categories (type='expense'): all current presets.
 
 | Table | Status | Notes |
 |---|---|---|
-| `bank_accounts` | Keep + extend | Phase B: add new `type` values for liabilities (`credit_card`, `mortgage`, `loan`) |
+| `bank_accounts` | Keep + extend | Phase A1: add `on_budget boolean`. Phase B: add new `type` values for liabilities. |
 | `buckets` | Keep | Budget envelopes — name, period, amount |
 | `goals` | Keep | Separate concept from TBB |
 | `categories` | Modify | Add `type` column only |
+
+**`on_budget` column (Phase A1):** Every bank account is either on-budget or
+off-budget. This is a core YNAB invariant.
+```sql
+ALTER TABLE bank_accounts ADD COLUMN on_budget boolean NOT NULL DEFAULT true;
+```
+- **On-budget** (`on_budget = true`): checking, savings, cash — cash in these accounts
+  feeds TBB. A transfer between two on-budget accounts is neutral; TBB is unaffected.
+- **Off-budget** (`on_budget = false`): liabilities, investments — balances represent
+  net worth but the cash is not available for envelopes. A transfer FROM an on-budget
+  account TO an off-budget account removes money from the budget universe and MUST
+  require a `category_id` and `bucket_id` on the outgoing side. Enforcement: Phase A5.
 
 **Liability account decision (2026-05-27):** Liabilities are modeled as additional
 `type` values on `bank_accounts`, NOT a separate table. A credit card, mortgage, or
@@ -373,6 +390,8 @@ stay live until Phase A5. Each phase is a separate PR.
 ### Phase A1 — Create new tables alongside old ones
 - Create `transactions`, `payees`, `budget_assignments` tables
 - Add `type` column to `categories`
+- Add `on_budget boolean NOT NULL DEFAULT true` to `bank_accounts`
+- Add `flagged boolean NOT NULL DEFAULT false` to `transactions` schema (v2 only)
 - Add income-type preset categories
 - **No existing data touched. App unchanged.**
 - Migration: `20240013_create_transactions_payees_assignments.sql`
@@ -426,6 +445,19 @@ stay live until Phase A5. Each phase is a separate PR.
   - `buckets.amount` becomes the *suggested* monthly assignment (prefills the field)
   - Pro-rating across budget periods removed from Plan page (dashboard keeps it)
   - TBB carries forward month-to-month (unassigned income is never lost)
+  - **Move money between envelopes**: redirect a rollover balance from one envelope
+    to another (e.g., move unspent Gas to Vacation mid-month)
+  - **Return to TBB**: release an envelope's rollover balance back to TBB
+  - **Copy last month**: pre-fill this month's assignments from last month as a
+    starting template — user adjusts rather than re-entering everything
+- **Envelope pause (natural behavior — no special feature needed):** Simply assign
+  $0 to an envelope this month. TBB retains the money; the envelope keeps its
+  rollover. On-vacation months: don't assign Gas; redirect that TBB to Vacation.
+- **"Flag for accountant" toggle** on any transaction: sets `flagged = true`, opens
+  notes field for context ("split needed: $4k office supplies / $6k groceries").
+  Flagged transactions appear highlighted in the register and as a filter in `/reports`.
+- **Off-budget transfer enforcement**: when the destination account has `on_budget = false`,
+  the transfer UI requires `category_id` + `bucket_id` on the outgoing side.
 - Type-aware transaction entry form (`TransactionEntryForm` component, morphs by type)
 - Income transaction entry (salary, rent, commission — not receipt-based)
 - Transfer entry UI (single form → two linked rows via `transfer_pair_id`)
@@ -472,6 +504,10 @@ stay live until Phase A5. Each phase is a separate PR.
 - Refunds/chargebacks link to their `original_transaction_id`
 - Amount is always stored positive — `direction` carries the sign
 - `invoice_date` is optional; `date` (paid date) is required
+- A transfer to an off-budget account (`on_budget = false`) MUST have `category_id`
+  and `bucket_id` on the outgoing side — the money is leaving the budget universe
+- `flagged = true` means the transaction needs accountant attention — always paired
+  with a note explaining why; never set silently by the system
 
 ---
 
@@ -494,20 +530,27 @@ stay live until Phase A5. Each phase is a separate PR.
 | `account_id` nullable during migration? | No — stays NOT NULL. Migrated rows assigned to "Unassigned" sentinel account. User re-assigns from register. | 2026-05-27 |
 | Liability accounts: separate table or extend `bank_accounts`? | Extend `bank_accounts` with new type values (`credit_card`, `mortgage`, `loan`). One table, balance sheet splits by type. | 2026-05-27 |
 | TBB carry-forward? | Carries forward month-to-month — unassigned income is never lost. Plan page is always monthly. | 2026-05-27 |
+| On-budget vs off-budget accounts? | Add `on_budget boolean NOT NULL DEFAULT true` to `bank_accounts` in Phase A1. Off-budget transfers must consume a category. | 2026-05-27 |
+| Split transactions in the schema? | Deferred to Phase B. Interim: `flagged = true` + `notes` describes the split intent for the accountant. No `transaction_lines` table yet. | 2026-05-27 |
+| Gross vs net salary entry? | Net only for Phase A. Known limitation: do not create envelopes for items deducted at source (NHT, NIS, pension). Phase B: optional payslip upload (Claude Vision) extracts gross/deductions and creates deduction transactions automatically. | 2026-05-27 |
+| Envelope pause / vacation month? | Natural YNAB behavior — simply assign $0 to that envelope. Money stays in TBB for reallocation. No special feature needed. Phase A5 adds "move money" and "return to TBB" for redirecting rollover balances. | 2026-05-27 |
+| CapEx vs OpEx / depreciation schedules? | Permanently out of scope for the app. User records the purchase as an expense and flags it. Accountant handles capital allowance classification. | 2026-05-27 |
+| Full TAJ Schedule 1 automation? | Out of scope. The app collects accurate data and gives the accountant a clean `/reports` view. TAJ Schedule 1 interpretation is accountant territory. Phase B adds a lightweight `taj_schedule_group` annotation on categories — optional metadata only. | 2026-05-27 |
 
 ## 10. Open Decisions
 
 | Question | Options | Notes |
 |---|---|---|
-| Reconciliation workflow | Auto-match CSV vs manual tick | How does the user match imported rows to existing transactions? |
-| TBB carry-forward | Carry month-to-month vs reset | Does unspent TBB roll into next month? (YNAB: yes) |
+| Reconciliation workflow | Auto-match CSV vs manual tick | How does the user match imported CSV rows to existing transactions? |
 | Payee learning threshold | After 1, 2, or 3 transactions | When does JPS auto-suggest Electricity? |
-| Income OCR | Detect income from deposit slips? | Would require training the OCR prompt for credits |
-| Investment accounts | Separate account type | Retirement savings, unit trusts, equities. Not spending accounts — tracked differently. |
-| Tax-deductible flag | `is_deductible` boolean on `categories` | Which expense categories are tax-deductible in Jamaica? How granular? |
-| TAJ Schedule 1 subcategories | Extend income category type | Employment / Rental / Commission / Dividend / Interest / Other. Required for IT01 helper. |
-| Accountant gating timeline | Role flag on users table | When does `/reports` become accountant-only vs always visible to the user? |
-| Opening balances | Auto-generate from `bank_accounts.balance` | Current balance field → one-time `opening_balance` transaction per account. When/how to migrate? |
+| Income OCR | Detect income from deposit slips? | Would require training the OCR prompt for credits. Phase A5 concern. |
+| Investment accounts | New `type` values on `bank_accounts` | Retirement savings, unit trusts, equities. Off-budget by default. Phase B. |
+| TAJ Schedule 1 subcategories | Optional `taj_schedule_group` on categories | Employment / Rental / Commission / Dividend / Interest / Other. Lightweight annotation. Phase B. |
+| Tax-deductible flag | `is_deductible` boolean on `categories` | Which categories are deductible in Jamaica? Accountant sets this. Phase B. |
+| Accountant gating timeline | Role flag on users table | When does `/reports` become accountant-only? Phase B+. |
+| Opening balances | One `opening_balance` transaction per account | Current `bank_accounts.balance` field → convert to transaction at account setup. When/how? |
+| Split transactions | `transaction_lines` child table | Deferred to Phase B. Decide then whether complexity is justified vs flagged-note approach. |
+| Payslip upload (Phase B) | Claude Vision reads payslip | Extract gross, NIS/NHT/PAYE deductions, create deduction transactions automatically. Design TBD. |
 
 ---
 
@@ -516,12 +559,17 @@ stay live until Phase A5. Each phase is a separate PR.
 ### Near-term (Phase A1–A3, current sprint)
 - [ ] Create new DB tables (`transactions`, `payees`, `budget_assignments`)
 - [ ] Add `type` column to categories + income preset categories
-- [ ] Build `/register` — Quicken-style account register table (Phase A2, debugging tool)
+- [ ] Add `on_budget boolean` to `bank_accounts`
+- [ ] Build `/register` — Quicken-style account register table (Phase A2, debugging tool) ✅
 - [ ] Migrate existing data from `expenses` → `transactions`
 
 ### Mid-term (Phase A4–A5)
 - [ ] Rewrite all API routes and queries to use `transactions`
-- [ ] TBB panel on Plan page
+- [ ] TBB panel on Plan page (monthly-only revamp)
+- [ ] Move money between envelopes / return to TBB
+- [ ] Copy last month's assignments shortcut
+- [ ] "Flag for accountant" toggle on transaction rows
+- [ ] Off-budget transfer enforcement (require category when destination is off-budget)
 - [ ] Income transaction entry form
 - [ ] Transfer entry (single form → two linked rows)
 - [ ] Per-account register at `/accounts/[id]`
@@ -539,17 +587,20 @@ stay live until Phase A5. Each phase is a separate PR.
 
 ### Phase B — Financial Statements (post Phase A6)
 - [ ] `/reports` section entry point in sidebar
-- [ ] Chart of Accounts (all accounts with current balances)
+- [ ] Chart of Accounts (all accounts with current balances, assets vs liabilities split)
 - [ ] General Ledger (all transactions, chronological, debit/credit columns)
 - [ ] Trial Balance (total debits vs total credits — proves the books balance)
 - [ ] Income Statement (revenue − expenses by category, monthly columns, Jan–Dec)
 - [ ] Balance Sheet (assets − liabilities = net worth — point-in-time)
 - [ ] Cash Flow Statement (operating / investing / financing)
-- [ ] Jamaica IT01 helper (cash-basis income by TAJ Schedule 1 category, deductible expenses, estimated taxable income)
-- [ ] Tax-deductible flag on `categories` (`is_deductible boolean`)
-- [ ] TAJ Schedule 1 income subcategories on income `categories`
-- [ ] Liability account type (mortgage, car loan, credit card balance owed)
-- [ ] Investment account type (retirement savings, unit trusts, equities)
+- [ ] "Flagged for accountant" filter in `/reports` — shows all `flagged = true` rows
+- [ ] Jamaica IT01 helper (cash-basis income by TAJ category, deductible expenses, estimated taxable income)
+- [ ] `is_deductible boolean` on `categories` (accountant-set)
+- [ ] `taj_schedule_group` annotation on `categories` (lightweight, optional)
+- [ ] Liability account types on `bank_accounts` (`credit_card`, `mortgage`, `loan`)
+- [ ] Investment account types on `bank_accounts` (`investment`) — off-budget by default
+- [ ] Payslip upload (Claude Vision extracts gross/deductions → creates deduction transactions)
+- [ ] Reconsider split transactions (`transaction_lines` table) based on real usage data
 - [ ] PDF export of any financial statement (for accountant handoff)
 - [ ] Accountant role gating on `/reports`
 
@@ -677,4 +728,4 @@ A seventh view, Jamaica-specific:
 
 ---
 
-*Last updated: 2026-05-27*
+*Last updated: 2026-05-27 (dispute session — on_budget, flagged, gross/net, envelope pause, CapEx scope)*
