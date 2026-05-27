@@ -75,6 +75,27 @@ auto-seeded on first visit.
 `bank_accounts` table extended with `account_number` and `notes` columns (migration
 20240012). Account rows now click-to-edit inline with all fields. Create form updated.
 
+### Phase 6c — Spreadsheet Analysis + Architecture Decision · *Complete · 2026-05-26*
+Reviewed existing Google Sheets financial ledger (multi-account Quicken-style register).
+Identified that `expenses` (debit-only) cannot model income, chargebacks, refunds,
+transfers, bank fees, or interest. Decision: rebuild as YNAB + Quicken hybrid.
+Full spec documented in `docs/SPEC.md` (this file).
+
+### Phase 6d — Master SPEC + Transaction Register · *Complete · 2026-05-26*
+`docs/SPEC.md` created — living master specification. `/register` page added —
+Quicken-style account register table mirroring the Google Sheets layout. 14 columns:
+Account · Paid Date · Invoice Date · Ref # · Payee · Category · Budget · Memo · Mode
+· Clr · DEBIT · CREDIT · Balance · Receipt. Phase A2 placeholder columns show `─`
+until Phase A3 populates them. All 9 sidebars updated to include Register.
+
+### Phase 7 — Documentation + Configuration Overhaul · *Complete · 2026-05-27*
+`rules/` directory (5 concern-scoped files: code-style, security, api-conventions,
+database, ui-standards). `CLAUDE.md` overhauled to a lean orchestrator importing all
+rule files via `@`. Subdirectory `CLAUDE.md` files in `app/api/` and `lib/db/` for
+context-scoped AI loading. `.claude/settings.json` with deny-list (force-push,
+DROP TABLE, rm -rf, vercel --prod), allow-list (safe git, npm, grep), PostToolUse
+TypeScript error hook, and PreToolUse destructive-pattern blocker.
+
 ---
 
 ## 3. The Core Problem (Why We Are Rebuilding)
@@ -134,6 +155,76 @@ TBB = SUM(all income credit transactions ever)
     − SUM(all budget_assignments ever)
 ```
 TBB must never go negative. The UI blocks assignments that would exceed TBB.
+
+### 4.1 Double-Entry as Database Constraint (Not UI Layout)
+
+**Decided: 2026-05-27.**
+
+Double-entry bookkeeping is a **database constraint** — it is NOT a UI layout
+requirement. The T-account (left/right, debit/credit columns) is a 1400s paper
+convention for humans doing arithmetic by hand. The invariant it enforces ("every
+economic event has two equal and opposite effects") lives in the data model, not
+the screen.
+
+**What this means for Ledger:**
+- The UI is completely free to be modern and consumer-friendly (YNAB/Copilot style)
+- The database enforces the constraint: transfers create two linked rows; the TBB
+  formula balances income vs assignments
+- The classical Chart of Accounts / General Ledger / Trial Balance layout lives
+  only in the `/reports` accountant view
+- Users never see "debit this account, credit that account" — they see
+  "I spent $500 at JPS" and the app records both sides automatically
+
+Every modern personal finance app (YNAB, Copilot, Monarch) is double-entry under
+the hood. None show T-accounts. All enforce the invariant invisibly.
+
+### 4.2 Accrual vs Cash from the Same Register
+
+**Decided: 2026-05-27.**
+
+The `transactions` table stores two dates per transaction:
+- `date` — the **paid/settlement date** (cash basis: when money actually moved)
+- `invoice_date` — the **obligation date** (accrual basis: when the charge was created)
+
+This single design choice gives both reporting methods from the same data:
+
+| Method | Use | Filter on |
+|---|---|---|
+| Cash basis | Jamaica IT01 personal tax return | `date` (paid date) |
+| Accrual basis | True financial picture (what you owe) | `invoice_date` (obligation date) |
+
+Jamaica personal tax returns use **cash basis**. A bill received in December but paid
+in January appears on the NEXT year's return. The register shows both dates side by
+side — the user can see when obligations were created vs when they were settled.
+
+All reports offer a toggle: "Cash basis" vs "Accrual basis". Cash basis is the
+default because it matches Jamaica IT01 requirements.
+
+### 4.3 Type-Aware Transaction Entry Forms
+
+**Decided: 2026-05-27. Implementation: Phase A5.**
+
+The transaction entry form morphs based on transaction type. Showing irrelevant
+fields confuses users and causes data entry errors.
+
+| Type | Required fields | Optional fields |
+|---|---|---|
+| `purchase` | Account, Amount, Date, Payee | Invoice Date, Category, Budget, Ref #, Memo, Receipt |
+| `income` | Account, Amount, Date, Income Category | Payee, Ref #, Memo |
+| `transfer_out` | From Account, To Account, Amount, Date | Memo, Ref # |
+| `transfer_in` | *(auto-created as the other side of transfer_out)* | — |
+| `refund` | Account, Amount, Date, Original Transaction | Category (pre-filled from original) |
+| `chargeback` | Account, Amount, Date | Payee, Ref #, Memo |
+| `bank_fee` | Account, Amount, Date | Memo |
+| `interest` | Account, Amount, Date | Memo |
+| `opening_balance` | Account, Amount, Date | Memo |
+
+Key UX decisions:
+- Type selector is the **first field** — drives everything else
+- Transfer creates **two rows** from one form (auto-linked via `transfer_pair_id`)
+- Refund pre-fills category/budget from the linked original transaction
+- Receipt upload is only offered for `purchase`, `bank_fee`, `chargeback`
+- Income entry does NOT offer a receipt upload field
 
 ---
 
@@ -371,6 +462,11 @@ stay live until Phase A5. Each phase is a separate PR.
 | Transfer UI: single form or manual? | Single form — app creates both sides automatically | 2026-05-26 (pending impl.) |
 | Account required on every transaction? | Yes — must assign account at entry time (v2+) | 2026-05-26 (pending impl.) |
 | Drop bank_entries? | Yes — replaced by transactions with source='csv' | 2026-05-26 |
+| Double-entry T-account UI? | No. Double-entry is a DB constraint. UI is consumer-friendly. T-accounts only in `/reports`. | 2026-05-27 |
+| Accrual vs cash reporting? | Store both dates. Reports default to cash basis (Jamaica IT01). Toggle to accrual available. | 2026-05-27 |
+| Type-aware entry forms? | Yes — form morphs by transaction type. One form, dynamic fields. Phase A5 implementation. | 2026-05-27 |
+| `/reports` section? | Yes — Chart of Accounts, General Ledger, Trial Balance, Income Statement, Balance Sheet. Phase B. | 2026-05-27 |
+| Accountant access gating? | `/reports` visible to user now. Later: gated to accountant role or PDF-export only. | 2026-05-27 |
 
 ## 10. Open Decisions
 
@@ -380,6 +476,12 @@ stay live until Phase A5. Each phase is a separate PR.
 | TBB carry-forward | Carry month-to-month vs reset | Does unspent TBB roll into next month? (YNAB: yes) |
 | Payee learning threshold | After 1, 2, or 3 transactions | When does JPS auto-suggest Electricity? |
 | Income OCR | Detect income from deposit slips? | Would require training the OCR prompt for credits |
+| Liability accounts | New account type vs separate table | Mortgage, car loan, credit card balance. Needed for a complete Balance Sheet. |
+| Investment accounts | Separate account type | Retirement savings, unit trusts, equities. Not spending accounts — tracked differently. |
+| Tax-deductible flag | `is_deductible` boolean on `categories` | Which expense categories are tax-deductible in Jamaica? How granular? |
+| TAJ Schedule 1 subcategories | Extend income category type | Employment / Rental / Commission / Dividend / Interest / Other. Required for IT01 helper. |
+| Accountant gating timeline | Role flag on users table | When does `/reports` become accountant-only vs always visible to the user? |
+| Opening balances | Auto-generate from `bank_accounts.balance` | Current balance field → one-time `opening_balance` transaction per account. When/how to migrate? |
 
 ---
 
@@ -409,6 +511,139 @@ stay live until Phase A5. Each phase is a separate PR.
 - [ ] "Left over from last month" rollover in Plan right panel
 - [ ] Scheduled/recurring transactions
 
+### Phase B — Financial Statements (post Phase A6)
+- [ ] `/reports` section entry point in sidebar
+- [ ] Chart of Accounts (all accounts with current balances)
+- [ ] General Ledger (all transactions, chronological, debit/credit columns)
+- [ ] Trial Balance (total debits vs total credits — proves the books balance)
+- [ ] Income Statement (revenue − expenses by category, monthly columns, Jan–Dec)
+- [ ] Balance Sheet (assets − liabilities = net worth — point-in-time)
+- [ ] Cash Flow Statement (operating / investing / financing)
+- [ ] Jamaica IT01 helper (cash-basis income by TAJ Schedule 1 category, deductible expenses, estimated taxable income)
+- [ ] Tax-deductible flag on `categories` (`is_deductible boolean`)
+- [ ] TAJ Schedule 1 income subcategories on income `categories`
+- [ ] Liability account type (mortgage, car loan, credit card balance owed)
+- [ ] Investment account type (retirement savings, unit trusts, equities)
+- [ ] PDF export of any financial statement (for accountant handoff)
+- [ ] Accountant role gating on `/reports`
+
 ---
 
-*Last updated: 2026-05-26*
+## 12. Financial Statements & Tax Reporting
+
+### 12.1 Current Completeness
+
+The transaction register is the hard part — raw data, correctly modeled. Financial
+statements are analysis layered on top. As of Phase 6d (expenses table only):
+
+**Overall completeness: ~65%**
+
+| Statement | Status | Gap |
+|---|---|---|
+| Income Statement (P&L) | ~65% | Expense side solid. Income transactions don't exist yet. |
+| Cash Flow Statement | ~50% | No transfers, capital movements, or bank fees modeled yet. |
+| Balance Sheet | ~30% | No liability accounts. No investment accounts. Opening balance entries needed. |
+| Jamaica IT01 Schedule | ~40% | No income subcategories (employment vs rental vs commission). No tax-deductible flag on expenses. |
+
+### 12.2 What Is Missing for Complete Statements
+
+**To complete the Income Statement:**
+- Income transactions (salary, rental, commission, dividends, interest earned) — Phase A1+
+- Income categories with `type='income'` — Phase A1
+- Year-to-date aggregation in `/reports`
+
+**To complete the Balance Sheet:**
+- Liability accounts: mortgage, car loan, credit card balance owed
+  (a liability is money you OWE — the inverse of an asset)
+- Investment accounts: retirement savings, unit trusts, equities (not spending accounts)
+- Opening balance transactions for each account (one `opening_balance` entry per account at setup)
+
+**To complete the Jamaica IT01:**
+- Tax-deductible flag on `categories` (`is_deductible boolean`)
+- TAJ Schedule 1 income subcategories:
+  - Employment income (salary, wages)
+  - Rental income
+  - Business / commission income
+  - Dividend income
+  - Interest income
+  - Other income
+- Cash-basis date filter: Jan 1 – Dec 31, using `date` (paid date field)
+
+### 12.3 Jamaica Tax Context
+
+| Fact | Detail |
+|---|---|
+| Tax authority | TAJ — Tax Administration Jamaica |
+| Personal return form | IT01 |
+| Filing basis | Cash basis (individuals) — report income/expenses in the year money actually moves |
+| Tax year | Calendar year: January 1 – December 31 |
+| Key implication | A December invoice paid in January appears on the NEXT year's return |
+| Deductions | NHT, NIS, pension contributions, approved charitable donations |
+
+The app's `date` field (paid date) is the cash-basis anchor for Jamaica IT01.
+`invoice_date` is stored for accrual reporting but NOT used for tax calculations.
+
+### 12.4 Account Types for the Balance Sheet
+
+```
+Assets (Phase A+):
+  Checking accounts    (type = 'checking')
+  Savings accounts     (type = 'savings')
+  Cash                 (type = 'cash')
+  Investment accounts  (type = 'investment')  ← Phase B
+
+Liabilities (Phase B):
+  Mortgage
+  Car loan
+  Credit card (balance owed)
+
+Equity (computed, not stored):
+  Net Worth = Total Assets − Total Liabilities
+```
+
+---
+
+## 13. /reports Section Design
+
+**Status:** Planned. Phase B (after Phase A6 completes the data model migration.)
+
+The `/reports` route is the explicit accountant view. It surfaces transaction data
+in the formal financial statement formats that accountants and tax preparers expect.
+The rest of the app remains consumer-friendly — no T-accounts, no journal entries.
+
+### 13.1 Six Views
+
+| View | What it shows |
+|---|---|
+| **Chart of Accounts** | All accounts (assets, liabilities) with current balances. The double-entry foundation. |
+| **General Ledger** | Every transaction across all accounts, chronological. Debit/Credit columns. Running balance per account. |
+| **Trial Balance** | Total debits vs total credits across all accounts. Proves the books balance. |
+| **Income Statement** | Revenue − Expenses = Net Income. Monthly columns, Jan–Dec. Grouped by income/expense categories. |
+| **Balance Sheet** | Assets − Liabilities = Net Worth (equity). Point-in-time snapshot. |
+| **Cash Flow Statement** | Operating / Investing / Financing activities. Where cash came from and went. |
+
+### 13.2 Jamaica IT01 Helper
+
+A seventh view, Jamaica-specific:
+- Basis: **cash** (Jan 1 – Dec 31, filter on `date` field only)
+- Income grouped by TAJ Schedule 1 category (Employment, Rental, Commission, etc.)
+- Deductible expenses listed with total
+- Estimated taxable income = Gross income − Deductions
+- Prominent disclaimer: "For reference only — not tax advice. File with a registered tax practitioner."
+
+### 13.3 Access and Export
+
+- **Phase B launch:** `/reports` visible to the logged-in user. No gating initially.
+- **Phase B+:** PDF export of any statement (for accountant handoff).
+- **Future:** Accountant role flag — grant a second user read-only access to `/reports`
+  only. The main app remains private. The accountant sees statements, not the register.
+
+### 13.4 What /reports Does NOT Do
+
+- Not a full accounting system — no manual journal entries, no adjusting entries
+- The General Ledger is a VIEW of `transactions`, not a separate accounting journal
+- Tax estimates are reference-only — the actual IT01 must be filed by a tax practitioner
+
+---
+
+*Last updated: 2026-05-27*
