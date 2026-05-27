@@ -335,14 +335,25 @@ Income categories (type='income'): Salary, Rental Income, Commission, Dividends,
 Interest, Refund/Reimbursement, Other Income.
 Expense categories (type='expense'): all current presets.
 
-### 5.5 Unchanged tables
+### 5.5 Unchanged tables (with extensions)
 
 | Table | Status | Notes |
 |---|---|---|
-| `bank_accounts` | Keep | Extended in 20240012 with account_number, notes |
+| `bank_accounts` | Keep + extend | Phase B: add new `type` values for liabilities (`credit_card`, `mortgage`, `loan`) |
 | `buckets` | Keep | Budget envelopes — name, period, amount |
 | `goals` | Keep | Separate concept from TBB |
 | `categories` | Modify | Add `type` column only |
+
+**Liability account decision (2026-05-27):** Liabilities are modeled as additional
+`type` values on `bank_accounts`, NOT a separate table. A credit card, mortgage, or
+car loan is still an account — transactions flow through it; the balance sheet split
+is a `WHERE type IN (...)` clause. One table keeps all queries, the register, and the
+account selector simple. Balance sheet:
+```
+Assets:      type IN ('checking', 'savings', 'cash', 'investment')
+Liabilities: type IN ('credit_card', 'mortgage', 'loan')
+Net Worth:   computed — SUM(assets) − SUM(liabilities)
+```
 
 ### 5.6 Tables to drop (after migration)
 
@@ -375,13 +386,19 @@ stay live until Phase A5. Each phase is a separate PR.
 - No API changes. Server component only.
 
 ### Phase A3 — Migrate existing data
+- **Pre-step:** Create one "Unassigned" bank account (sentinel) per user
+  - `name = 'Unassigned'`, `type = 'checking'`, `active = false`
+  - This preserves `account_id NOT NULL` on every migrated row
+  - The register will highlight rows with `account_id = <unassigned-uuid>` in amber
+    so the user can identify and reassign them
 - Copy all `expenses` rows → `transactions`
   - `direction = 'debit'`, `type = 'purchase'`
-  - `account_id = null` initially (user assigns accounts after)
+  - `account_id = <unassigned-uuid>` (user re-assigns from the register)
   - All other fields map directly
 - Copy `bank_entries` → `transactions`
   - `direction = 'debit'` or `'credit'` based on `bank_entries.type`
   - `cleared = true`, `source = 'csv'`
+  - `account_id = <unassigned-uuid>` unless bank_entry has a linked account
 - Verify row counts match before proceeding
 - Migration: `20240014_migrate_expenses_to_transactions.sql`
 
@@ -402,9 +419,16 @@ stay live until Phase A5. Each phase is a separate PR.
 - Update `docs/architecture.md`
 
 ### Phase A5 — New features enabled by v2 model
-- TBB panel on Plan page (shows unassigned income)
-- Income transaction entry (not just receipts — enter salary, rent received)
-- Transfer entry UI (single form creates both sides linked by `transfer_pair_id`)
+- **Plan page revamp (monthly-only YNAB style):**
+  - Period selector removed from Plan page — always monthly
+  - Top panel: TBB = income received this month − total assigned
+  - Envelope list: `Assigned this month | Spent | Available` columns
+  - `buckets.amount` becomes the *suggested* monthly assignment (prefills the field)
+  - Pro-rating across budget periods removed from Plan page (dashboard keeps it)
+  - TBB carries forward month-to-month (unassigned income is never lost)
+- Type-aware transaction entry form (`TransactionEntryForm` component, morphs by type)
+- Income transaction entry (salary, rent, commission — not receipt-based)
+- Transfer entry UI (single form → two linked rows via `transfer_pair_id`)
 - Per-account register view at `/accounts/[id]`
 - Payee autocomplete + learning (default category after N transactions)
 - Reconciliation workflow: mark cleared → mark reconciled against statement
@@ -467,6 +491,9 @@ stay live until Phase A5. Each phase is a separate PR.
 | Type-aware entry forms? | Yes — form morphs by transaction type. One form, dynamic fields. Phase A5 implementation. | 2026-05-27 |
 | `/reports` section? | Yes — Chart of Accounts, General Ledger, Trial Balance, Income Statement, Balance Sheet. Phase B. | 2026-05-27 |
 | Accountant access gating? | `/reports` visible to user now. Later: gated to accountant role or PDF-export only. | 2026-05-27 |
+| `account_id` nullable during migration? | No — stays NOT NULL. Migrated rows assigned to "Unassigned" sentinel account. User re-assigns from register. | 2026-05-27 |
+| Liability accounts: separate table or extend `bank_accounts`? | Extend `bank_accounts` with new type values (`credit_card`, `mortgage`, `loan`). One table, balance sheet splits by type. | 2026-05-27 |
+| TBB carry-forward? | Carries forward month-to-month — unassigned income is never lost. Plan page is always monthly. | 2026-05-27 |
 
 ## 10. Open Decisions
 
@@ -476,7 +503,6 @@ stay live until Phase A5. Each phase is a separate PR.
 | TBB carry-forward | Carry month-to-month vs reset | Does unspent TBB roll into next month? (YNAB: yes) |
 | Payee learning threshold | After 1, 2, or 3 transactions | When does JPS auto-suggest Electricity? |
 | Income OCR | Detect income from deposit slips? | Would require training the OCR prompt for credits |
-| Liability accounts | New account type vs separate table | Mortgage, car loan, credit card balance. Needed for a complete Balance Sheet. |
 | Investment accounts | Separate account type | Retirement savings, unit trusts, equities. Not spending accounts — tracked differently. |
 | Tax-deductible flag | `is_deductible` boolean on `categories` | Which expense categories are tax-deductible in Jamaica? How granular? |
 | TAJ Schedule 1 subcategories | Extend income category type | Employment / Rental / Commission / Dividend / Interest / Other. Required for IT01 helper. |
@@ -585,21 +611,26 @@ The app's `date` field (paid date) is the cash-basis anchor for Jamaica IT01.
 
 ### 12.4 Account Types for the Balance Sheet
 
-```
-Assets (Phase A+):
-  Checking accounts    (type = 'checking')
-  Savings accounts     (type = 'savings')
-  Cash                 (type = 'cash')
-  Investment accounts  (type = 'investment')  ← Phase B
+All account types live in `bank_accounts.type`. No separate liabilities table.
+The balance sheet groups by type with a WHERE clause.
 
-Liabilities (Phase B):
-  Mortgage
-  Car loan
-  Credit card (balance owed)
-
-Equity (computed, not stored):
-  Net Worth = Total Assets − Total Liabilities
 ```
+Assets (bank_accounts WHERE type IN):
+  'checking'      Checking / current accounts
+  'savings'       Savings accounts
+  'cash'          Physical cash (wallet, petty cash)
+  'investment'    Retirement savings, unit trusts, equities  ← Phase B
+
+Liabilities (bank_accounts WHERE type IN):           ← Phase B
+  'credit_card'   Credit card (balance = amount owed)
+  'mortgage'      Home mortgage
+  'loan'          Car loan, personal loan, other debt
+
+Equity (computed, never stored):
+  Net Worth = SUM(asset balances) − SUM(liability balances)
+```
+
+One table, one account selector, one register — the balance sheet split is presentation only.
 
 ---
 
