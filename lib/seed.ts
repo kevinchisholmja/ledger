@@ -4,37 +4,47 @@ import { eq } from "drizzle-orm";
 
 // ── Preset categories ─────────────────────────────────────────────────────────
 
-const PRESET_CATEGORIES = [
-  { name: "Groceries",           icon: "🛒" },
-  { name: "Dining Out",          icon: "🍽️" },
-  { name: "Fuel",                icon: "⛽" },
-  { name: "Transport",           icon: "🚌" },
-  { name: "Electricity",         icon: "💡" },
-  { name: "Water & Sewerage",    icon: "💧" },
-  { name: "Mobile Phone",        icon: "📱" },
-  { name: "Internet",            icon: "🌐" },
-  { name: "Health & Pharmacy",   icon: "🏥" },
-  { name: "Medical & Dental",    icon: "💊" },
-  { name: "Entertainment",       icon: "🎬" },
-  { name: "Clothing",            icon: "👗" },
-  { name: "Personal Care",       icon: "🧴" },
-  { name: "Beauty & Salon",      icon: "💇" },
-  { name: "Sports & Fitness",    icon: "🏋️" },
-  { name: "Education",           icon: "📚" },
-  { name: "Rent & Mortgage",     icon: "🏠" },
-  { name: "Home Repairs",        icon: "🛠️" },
-  { name: "Garden & Outdoor",    icon: "🌱" },
-  { name: "Car Maintenance",     icon: "🚗" },
-  { name: "Insurance",           icon: "🛡️" },
-  { name: "Travel",              icon: "✈️" },
-  { name: "Subscriptions",       icon: "📺" },
-  { name: "Gifts & Donations",   icon: "🎁" },
-  { name: "Church & Tithe",      icon: "⛪" },
-  { name: "Children & Baby",     icon: "👶" },
-  { name: "Bank & Finance",      icon: "🏦" },
-  { name: "Business Expenses",   icon: "💼" },
-  { name: "Electronics & Tech",  icon: "🖥️" },
-  { name: "Miscellaneous",       icon: "📦" },
+const PRESET_CATEGORIES: { name: string; icon: string; type: "expense" | "income" }[] = [
+  // ── Expense categories ───────────────────────────────────────────────────
+  { name: "Groceries",           icon: "🛒", type: "expense" },
+  { name: "Dining Out",          icon: "🍽️", type: "expense" },
+  { name: "Fuel",                icon: "⛽", type: "expense" },
+  { name: "Transport",           icon: "🚌", type: "expense" },
+  { name: "Electricity",         icon: "💡", type: "expense" },
+  { name: "Water & Sewerage",    icon: "💧", type: "expense" },
+  { name: "Mobile Phone",        icon: "📱", type: "expense" },
+  { name: "Internet",            icon: "🌐", type: "expense" },
+  { name: "Health & Pharmacy",   icon: "🏥", type: "expense" },
+  { name: "Medical & Dental",    icon: "💊", type: "expense" },
+  { name: "Entertainment",       icon: "🎬", type: "expense" },
+  { name: "Clothing",            icon: "👗", type: "expense" },
+  { name: "Personal Care",       icon: "🧴", type: "expense" },
+  { name: "Beauty & Salon",      icon: "💇", type: "expense" },
+  { name: "Sports & Fitness",    icon: "🏋️", type: "expense" },
+  { name: "Education",           icon: "📚", type: "expense" },
+  { name: "Rent & Mortgage",     icon: "🏠", type: "expense" },
+  { name: "Home Repairs",        icon: "🛠️", type: "expense" },
+  { name: "Garden & Outdoor",    icon: "🌱", type: "expense" },
+  { name: "Car Maintenance",     icon: "🚗", type: "expense" },
+  { name: "Insurance",           icon: "🛡️", type: "expense" },
+  { name: "Travel",              icon: "✈️", type: "expense" },
+  { name: "Subscriptions",       icon: "📺", type: "expense" },
+  { name: "Gifts & Donations",   icon: "🎁", type: "expense" },
+  { name: "Church & Tithe",      icon: "⛪", type: "expense" },
+  { name: "Children & Baby",     icon: "👶", type: "expense" },
+  { name: "Bank & Finance",      icon: "🏦", type: "expense" },
+  { name: "Business Expenses",   icon: "💼", type: "expense" },
+  { name: "Electronics & Tech",  icon: "🖥️", type: "expense" },
+  { name: "Miscellaneous",       icon: "📦", type: "expense" },
+  // ── Income categories (Phase A1) ─────────────────────────────────────────
+  // No budget envelopes — income flows to TBB, not to an envelope.
+  { name: "Salary",              icon: "💰", type: "income" },
+  { name: "Rental Income",       icon: "🏘️", type: "income" },
+  { name: "Commission",          icon: "📈", type: "income" },
+  { name: "Dividends",           icon: "💹", type: "income" },
+  { name: "Interest Earned",     icon: "🏦", type: "income" },
+  { name: "Refund / Reimbursement", icon: "↩️", type: "income" },
+  { name: "Other Income",        icon: "💵", type: "income" },
 ];
 
 // ── Preset budgets ────────────────────────────────────────────────────────────
@@ -91,7 +101,7 @@ export async function seedPresetsIfEmpty(userId: string): Promise<void> {
   if (missingCats.length > 0) {
     await db
       .insert(categories)
-      .values(missingCats.map((c) => ({ user_id: userId, name: c.name, icon: c.icon })));
+      .values(missingCats.map((c) => ({ user_id: userId, name: c.name, icon: c.icon, type: c.type })));
   }
 
   if (missingBudgets.length === 0) return;

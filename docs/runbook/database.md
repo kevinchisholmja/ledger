@@ -34,12 +34,13 @@ curl -s -X POST "https://api.supabase.com/v1/projects/evdbqegscpeaabzzcwvw/datab
 | `20240011_add_goals.sql` | ✅ | goals table |
 | `20240012_bank_account_number_notes.sql` | ✅ | bank_accounts.account_number + notes |
 
-## Upcoming migrations (Phase A — do not apply yet)
+| `20240013_create_transactions_payees_assignments.sql` | ✅ | Create transactions, payees, budget_assignments; add categories.type + bank_accounts.on_budget |
+
+## Upcoming migrations (Phase A3+ — do not apply yet)
 
 | File (planned) | Phase | What it will do |
 |----------------|-------|-----------------|
-| `20240013_create_transactions_payees_assignments.sql` | A1 | Create transactions, payees, budget_assignments; add categories.type |
-| `20240014_migrate_expenses_to_transactions.sql` | A3 | Copy expenses → transactions (direction=debit, type=purchase) |
+| `20240014_migrate_expenses_to_transactions.sql` | A3 | Copy expenses → transactions (direction=debit, type=purchase, account=Unassigned) |
 | `20240015_drop_old_tables.sql` | A6 | DROP expenses, bank_entries after full migration |
 
 ## Known issues

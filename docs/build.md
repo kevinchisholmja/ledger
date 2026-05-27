@@ -184,11 +184,34 @@ references `docs/SPEC.md` for architecture, highlights the three non-optional ru
 
 ---
 
-## Next: Phase A1 — Create v2 Tables
+## Phase A1 — Create v2 Tables
+**Date:** 2026-05-27 · **Status:** Complete
+
+Created the v2 data model tables alongside the existing ones. No existing data
+touched. App unchanged — all code still reads from `expenses`.
+
+Migration `20240013_create_transactions_payees_assignments.sql`:
+- `CREATE TABLE transactions` — full v2 model with direction, type, two dates,
+  cleared/reconciled, `flagged`, `transfer_pair_id`, `original_transaction_id`
+- `CREATE TABLE payees` — named parties with default category/budget learning
+- `CREATE TABLE budget_assignments` — TBB → envelope flow, unique per bucket per month
+- `ALTER TABLE categories ADD COLUMN type` — `'expense' | 'income'`, default `'expense'`
+- `ALTER TABLE bank_accounts ADD COLUMN on_budget` — YNAB on/off-budget invariant
+
+`lib/db/schema.ts` updated with all new table definitions and v2 type exports.
+`lib/seed.ts` updated: 7 income-type preset categories added (Salary, Rental Income,
+Commission, Dividends, Interest Earned, Refund / Reimbursement, Other Income).
+All expense preset categories now explicitly carry `type: 'expense'`.
+
+→ `activity/2026/2026-05-27.md`
+
+---
+
+## Next: Phase A3 — Migrate Existing Data
 **Status:** Planned
 
-Create `transactions`, `payees`, `budget_assignments` tables in DB.
-Add `type` column to `categories`. Add income-type preset categories.
-No existing data touched.
+Copy `expenses` → `transactions` (direction=debit, type=purchase, account=Unassigned).
+Copy `bank_entries` → `transactions` (source=csv, cleared=true).
+Pre-step: create "Unassigned" sentinel bank account per user.
 
 See `docs/SPEC.md §6` for the complete migration plan.
