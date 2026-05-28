@@ -20,27 +20,28 @@ source of truth for the vision, current state, v2 data model, and migration plan
 | Auth + Storage | Supabase JS (`@supabase/ssr`) | Not for DB queries — Drizzle only |
 | AI | `claude-sonnet-4-6` | Do not change model without testing on receipts |
 
-## Current phase: Phase A2
-The app is in active **data model transition** (expenses → transactions).
-See `docs/SPEC.md §6` for the full migration plan.
+## Current phase: Phase A4 complete
+All application code reads/writes from the v2 `transactions` table.
+`expenses` and `bank_entries` are truncated (no data). Next: Phase A5 (payees + budget assignments UI).
 
 **Right now:**
-- DB table `expenses` still holds all transactions (debit-only model)
-- DB table `transactions` does not exist yet (created in Phase A1)
-- Do NOT rename `expenses` or `buckets` — that happens in Phase A3/A6
-- New features: write against `transactions` once Phase A1 is complete
+- DB table `transactions` is live — all inserts and reads go here
+- DB table `expenses` exists but is empty — do NOT write to it
+- Do NOT rename `buckets` — stays as `buckets` permanently
+- `bank_entries` will be dropped in Phase A6
 
-## DB table names (current — do not rename yet)
-| UI name | DB table | Migration phase |
-|---------|----------|-----------------|
-| Transaction | `expenses` | Renamed to `transactions` in Phase A3 |
+## DB table names (current)
+| UI name | DB table | Notes |
+|---------|----------|-------|
+| Transaction | `transactions` | v2 active — use this |
 | Budget | `buckets` | Stays as `buckets` forever |
-| — | `bank_entries` | Dropped in Phase A6 |
+| — | `expenses` | Empty — do not write to |
+| — | `bank_entries` | Empty — dropped in Phase A6 |
 
 ## Three rules that are never optional
 1. `await requireUser()` — first line of every route handler and server component
 2. `.where(eq(table.user_id, user.id))` — every Drizzle query
-3. Confirming a transaction sets **three fields**: `confirmed_category` (text) + `category_id` (UUID) + `bucket_id` (UUID)
+3. Confirming a transaction sets **two fields**: `category_id` (UUID) + `bucket_id` (UUID)
 
 ## Currency
 Always `formatJMD()` or `formatCurrency()` from `lib/format.ts` — never inline.

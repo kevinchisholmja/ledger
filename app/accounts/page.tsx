@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { expenses, buckets, bankAccounts, categories } from "@/lib/db/schema";
+import { transactions, buckets, bankAccounts, categories } from "@/lib/db/schema";
 import { eq, and, ne, isNotNull, desc, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
 import { formatCurrency } from "@/lib/format";
@@ -35,24 +35,26 @@ function SidebarItem({
 export default async function AccountsPage() {
   const user = await requireUser();
 
-  const [allExpenses, allBankAccounts, pendingCount, totalSpent, userBuckets, userCategories] = await Promise.all([
+  const [allTransactions, allBankAccounts, pendingCount, totalSpent, userBuckets, userCategories] = await Promise.all([
     db.select({
-      id: expenses.id,
-      merchant: expenses.merchant,
-      amount: expenses.amount,
-      currency: expenses.currency,
-      date: expenses.date,
-      status: expenses.status,
-      source: expenses.source,
-      bucket_id: expenses.bucket_id,
-      category_id: expenses.category_id,
-      confirmed_category: expenses.confirmed_category,
-      notes: expenses.notes,
-      receipt_url: expenses.receipt_url,
+      id: transactions.id,
+      payee_name: transactions.payee_name,
+      amount: transactions.amount,
+      currency: transactions.currency,
+      date: transactions.date,
+      status: transactions.status,
+      source: transactions.source,
+      direction: transactions.direction,
+      bucket_id: transactions.bucket_id,
+      category_id: transactions.category_id,
+      category_name: categories.name,
+      notes: transactions.notes,
+      receipt_url: transactions.receipt_url,
     })
-    .from(expenses)
-    .where(eq(expenses.user_id, user.id))
-    .orderBy(desc(expenses.date), desc(expenses.created_at)),
+    .from(transactions)
+    .leftJoin(categories, eq(transactions.category_id, categories.id))
+    .where(eq(transactions.user_id, user.id))
+    .orderBy(desc(transactions.date), desc(transactions.created_at)),
 
     db.select()
       .from(bankAccounts)
@@ -60,19 +62,19 @@ export default async function AccountsPage() {
       .orderBy(bankAccounts.name),
 
     db.select({ count: sql<number>`count(*)::int` })
-      .from(expenses)
+      .from(transactions)
       .where(and(
-        eq(expenses.user_id, user.id),
+        eq(transactions.user_id, user.id),
         sql`status IN ('pending_review', 'pending_ocr')`,
       ))
       .then((r) => r[0]?.count ?? 0),
 
-    db.select({ total: sql<string>`COALESCE(SUM(${expenses.amount}::numeric), 0)` })
-      .from(expenses)
+    db.select({ total: sql<string>`COALESCE(SUM(${transactions.amount}::numeric), 0)` })
+      .from(transactions)
       .where(and(
-        eq(expenses.user_id, user.id),
-        ne(expenses.status, "pending_ocr"),
-        isNotNull(expenses.amount),
+        eq(transactions.user_id, user.id),
+        ne(transactions.status, "pending_ocr"),
+        isNotNull(transactions.amount),
       ))
       .then((r) => Number(r[0]?.total ?? 0)),
 
@@ -86,11 +88,11 @@ export default async function AccountsPage() {
       .orderBy(categories.name),
   ]);
 
-  const confirmedCount = allExpenses.filter(
-    (e) => e.status === "confirmed" || e.status === "reconciled"
+  const confirmedCount = allTransactions.filter(
+    (t) => t.status === "confirmed" || t.status === "reconciled"
   ).length;
-  const pendingReview = allExpenses.filter(
-    (e) => e.status === "pending_review" || e.status === "pending_ocr"
+  const pendingReview = allTransactions.filter(
+    (t) => t.status === "pending_review" || t.status === "pending_ocr"
   ).length;
 
   return (
@@ -112,6 +114,7 @@ export default async function AccountsPage() {
           <SidebarItem href="/goals" icon="◇" label="Goals" />
           <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
+          <SidebarItem href="/register" icon="▦" label="Register" />
           <SidebarItem href="/accounts" icon="⬡" label="All Accounts" active />
           <SidebarItem href="/budgets" icon="◎" label="Budgets" />
           <SidebarItem href="/categories" icon="◈" label="Categories" />
@@ -154,7 +157,7 @@ export default async function AccountsPage() {
                   Transactions
                 </h2>
                 <div className="flex items-center gap-4 text-xs text-gray-400">
-                  <span><span className="font-semibold text-gray-900">{allExpenses.length}</span> total</span>
+                  <span><span className="font-semibold text-gray-900">{allTransactions.length}</span> total</span>
                   <span><span className="font-semibold text-emerald-600">{confirmedCount}</span> confirmed</span>
                   <span><span className="font-semibold text-blue-600">{pendingReview}</span> needs review</span>
                   <span className="font-semibold text-gray-900 tabular-nums">{formatCurrency(totalSpent, "JMD")}</span>
@@ -162,7 +165,7 @@ export default async function AccountsPage() {
               </div>
 
               <TransactionListClient
-                transactions={allExpenses}
+                transactions={allTransactions}
                 budgets={userBuckets}
                 categories={userCategories}
               />

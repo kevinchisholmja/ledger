@@ -38,7 +38,7 @@ export default function TransactionModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [merchant, setMerchant] = useState(tx.merchant ?? "");
+  const [payeeName, setPayeeName] = useState(tx.payee_name ?? "");
   const [amount, setAmount] = useState(tx.amount ?? "");
   const [currency, setCurrency] = useState(tx.currency ?? "JMD");
   const [date, setDate] = useState(tx.date ?? "");
@@ -48,7 +48,6 @@ export default function TransactionModal({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Close on Escape
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -57,7 +56,6 @@ export default function TransactionModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Prevent body scroll while modal is open
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
@@ -65,17 +63,15 @@ export default function TransactionModal({
 
   async function save() {
     setSaving(true);
-    const selectedCat = categories.find((c) => c.id === categoryId);
-    await fetch(`/api/expenses/${tx.id}`, {
+    await fetch(`/api/transactions/${tx.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        merchant: merchant || null,
+        payee_name: payeeName || null,
         amount: amount !== "" ? Number(amount) : null,
         currency,
         date,
         bucket_id: budgetId || null,
-        confirmed_category: selectedCat?.name ?? null,
         category_id: categoryId || null,
         notes: notes || null,
         status: tx.status === "pending_review" || tx.status === "pending_ocr"
@@ -91,22 +87,21 @@ export default function TransactionModal({
   async function deleteTransaction() {
     if (!confirm("Delete this transaction? This cannot be undone.")) return;
     setDeleting(true);
-    await fetch(`/api/expenses/${tx.id}`, { method: "DELETE" });
+    await fetch(`/api/transactions/${tx.id}`, { method: "DELETE" });
     setDeleting(false);
     onClose();
     router.refresh();
   }
 
   const hasAmount = tx.amount != null && tx.status !== "pending_ocr";
+  const isCredit = tx.direction === "credit";
 
   return (
-    /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
       onClick={onClose}
     >
-      {/* Modal card */}
       <div
         className="relative w-full md:max-w-lg bg-white rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] md:max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
@@ -115,7 +110,7 @@ export default function TransactionModal({
         <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-gray-100 shrink-0">
           <div className="min-w-0">
             <p className="text-base font-semibold text-gray-900 truncate">
-              {tx.merchant ?? "No merchant"}
+              {tx.payee_name ?? "No payee"}
             </p>
             <div className="flex items-center gap-2 mt-1">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[tx.status] ?? "bg-gray-100 text-gray-500"}`}>
@@ -123,8 +118,8 @@ export default function TransactionModal({
               </span>
               <span className="text-xs text-gray-400 capitalize">{tx.source}</span>
               {hasAmount && (
-                <span className="ml-auto text-sm font-semibold text-gray-900 tabular-nums">
-                  {formatCurrency(Number(tx.amount), tx.currency)}
+                <span className={`ml-auto text-sm font-semibold tabular-nums ${isCredit ? "text-emerald-600" : "text-gray-900"}`}>
+                  {isCredit ? "+" : ""}{formatCurrency(Number(tx.amount), tx.currency)}
                 </span>
               )}
             </div>
@@ -153,10 +148,10 @@ export default function TransactionModal({
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className={labelCls}>Merchant</label>
+              <label className={labelCls}>Payee</label>
               <input
-                value={merchant}
-                onChange={(e) => setMerchant(e.target.value)}
+                value={payeeName}
+                onChange={(e) => setPayeeName(e.target.value)}
                 placeholder="Business name"
                 className={inputCls}
               />

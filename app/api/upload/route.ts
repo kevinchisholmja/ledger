@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { requireUser } from "@/lib/auth";
 import { runOcr } from "@/lib/ocr";
 import { db } from "@/lib/db/client";
-import { categories, buckets } from "@/lib/db/schema";
+import { categories, buckets, transactions } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
 const ALLOWED_MIME_TYPES = [
@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await file.arrayBuffer();
   const imageBuffer = Buffer.from(arrayBuffer);
 
-  // Fetch user's category and budget lists for list-grounded OCR
   const [userCategories, userBuckets] = await Promise.all([
     db.select({ id: categories.id, name: categories.name })
       .from(categories)
@@ -75,37 +74,30 @@ export async function POST(req: NextRequest) {
 
   let status = "pending_ocr";
   let ocrResult = null;
-  let rawOcrText: string | null = null;
 
   try {
     const ocr = await runOcr(imageBuffer, mimeType, { categories: userCategories, budgets: userBuckets });
     ocrResult = ocr.result;
-    rawOcrText = ocr.rawText;
     status = "pending_review";
   } catch (err) {
     console.error("OCR failed:", err);
   }
 
-  const { error: insertError } = await supabase.from("expenses").insert({
+  await db.insert(transactions).values({
     user_id: user.id,
     source: "manual",
     status,
+    direction: "debit",
+    type: "purchase",
     receipt_url: receiptUrl,
-    raw_ocr_text: rawOcrText,
-    merchant: ocrResult?.merchant ?? null,
-    amount: ocrResult?.amount ?? null,
+    payee_name: ocrResult?.payee_name ?? null,
+    amount: ocrResult?.amount != null ? String(ocrResult.amount) : null,
     currency: ocrResult?.currency ?? "JMD",
     date: ocrResult?.date ?? today,
     category_id: ocrResult?.category_id ?? null,
     bucket_id: ocrResult?.bucket_id ?? null,
     notes: ocrResult?.note ?? null,
-    created_at: new Date().toISOString(),
   });
-
-  if (insertError) {
-    console.error("DB insert error:", insertError.message);
-    return NextResponse.json({ error: "Failed to save expense" }, { status: 500 });
-  }
 
   return NextResponse.json({ ok: true, status });
 }

@@ -6,7 +6,7 @@ export interface OcrLists {
 }
 
 export interface OcrResult {
-  merchant: string;
+  payee_name: string;
   amount: number | null;
   currency: string;
   date: string;
@@ -31,7 +31,7 @@ Return ONLY valid JSON — no markdown fences, no explanation, no extra keys.
 
 Schema:
 {
-  "merchant": "string — business name shown on receipt",
+  "payee_name": "string — business name shown on receipt",
   "amount": number or null — total amount paid (numeric only, no currency symbol),
   "currency": "string — 3-letter ISO code, default JMD if unclear",
   "date": "string — ISO 8601 date YYYY-MM-DD, use today if not shown",

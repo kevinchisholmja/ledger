@@ -5,7 +5,7 @@
 You are working in the database layer. `schema.ts` is the single source of truth
 for all table definitions and TypeScript types.
 
-## Current schema (Phase A1 complete)
+## Current schema (Phase A4 complete)
 
 ### Tables that exist in production
 ```
@@ -62,17 +62,16 @@ Do NOT rename the `expense_*` enums until Phase A4.
 
 | Table | Phase | Status |
 |-------|-------|--------|
-| `expenses` | v1 | Debit-only; all app code still reads this table |
-| `transactions` | v2 | Created (Phase A1) — empty until Phase A3 migration |
-| `bank_entries` | v1 | Being replaced by transactions with source='csv' (Phase A6) |
+| `expenses` | v1 | Truncated (no data) — all app code now reads `transactions` |
+| `transactions` | v2 | **Active** — all new inserts and reads go here (Phase A4 complete) |
+| `bank_entries` | v1 | Truncated (no data) — will be dropped in Phase A6 |
 | `buckets` | v1+v2 | Keep permanently |
 | `categories` | v1+v2 | Extended with `type` column (Phase A1) |
 | `bank_accounts` | v1+v2 | Extended with `on_budget` column (Phase A1) |
 | `payees` | v2 | Created (Phase A1) — empty until Phase A5 |
 | `budget_assignments` | v2 | Created (Phase A1) — empty until Phase A5 |
 
-Do NOT write new app features against `expenses` — they'll need rewriting in Phase A4.
-Write new features against `transactions` now that Phase A1 is complete.
+All new features must be written against `transactions`. Do NOT write against `expenses`.
 
 ## client.ts
 Do not modify `lib/db/client.ts` without a very good reason. The `prepare: false`

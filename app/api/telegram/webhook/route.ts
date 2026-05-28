@@ -4,13 +4,8 @@ import { randomUUID } from "crypto";
 import type { TelegramUpdate } from "@/types/telegram";
 import { runOcr, type OcrResult } from "@/lib/ocr";
 import { db } from "@/lib/db/client";
-import { categories, buckets } from "@/lib/db/schema";
+import { categories, buckets, transactions } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-
-// ---------------------------------------------------------------------------
-// Clients (initialised lazily so cold-start doesn't throw on missing env vars
-// during build time — Vercel injects them at runtime)
-// ---------------------------------------------------------------------------
 
 function getSupabaseAdmin() {
   return createClient(
@@ -19,10 +14,6 @@ function getSupabaseAdmin() {
     { auth: { persistSession: false } }
   );
 }
-
-// ---------------------------------------------------------------------------
-// Telegram helpers
-// ---------------------------------------------------------------------------
 
 const TG_BASE = () =>
   `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`;
@@ -36,13 +27,11 @@ async function sendTelegramMessage(chatId: number, text: string) {
 }
 
 async function downloadTelegramFile(fileId: string): Promise<Buffer> {
-  // 1. Get file path
   const pathRes = await fetch(`${TG_BASE()}/getFile?file_id=${fileId}`);
   const pathData = await pathRes.json();
   if (!pathData.ok) throw new Error(`getFile failed: ${JSON.stringify(pathData)}`);
   const filePath: string = pathData.result.file_path;
 
-  // 2. Download binary
   const fileRes = await fetch(
     `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`
   );
@@ -51,39 +40,19 @@ async function downloadTelegramFile(fileId: string): Promise<Buffer> {
   return Buffer.from(arrayBuffer);
 }
 
-// ---------------------------------------------------------------------------
-// Supabase helpers
-// ---------------------------------------------------------------------------
-
-async function uploadReceiptImage(
-  imageBuffer: Buffer,
-  telegramUserId: number
-): Promise<string> {
+async function uploadReceiptImage(imageBuffer: Buffer, telegramUserId: number): Promise<string> {
   const supabase = getSupabaseAdmin();
   const filename = `${telegramUserId}/${randomUUID()}.jpg`;
 
   const { error } = await supabase.storage
-    .from("receipts") // bucket must be created manually — see README
-    .upload(filename, imageBuffer, {
-      contentType: "image/jpeg",
-      upsert: false,
-    });
+    .from("receipts")
+    .upload(filename, imageBuffer, { contentType: "image/jpeg", upsert: false });
 
   if (error) throw new Error(`Storage upload failed: ${error.message}`);
 
   const { data } = supabase.storage.from("receipts").getPublicUrl(filename);
   return data.publicUrl;
 }
-
-async function insertExpense(row: Record<string, unknown>) {
-  const supabase = getSupabaseAdmin();
-  const { error } = await supabase.from("expenses").insert(row);
-  if (error) throw new Error(`DB insert failed: ${error.message}`);
-}
-
-// ---------------------------------------------------------------------------
-// Route handler
-// ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
   // ── 1. Verify webhook secret ──────────────────────────────────────────────
@@ -101,17 +70,13 @@ export async function POST(req: NextRequest) {
   }
 
   const message = update.message;
-  if (!message) {
-    // Telegram can send other update types (edited_message, etc.) — ignore
-    return NextResponse.json({ ok: true });
-  }
+  if (!message) return NextResponse.json({ ok: true });
 
   const chatId = message.chat.id;
   const telegramUserId = message.from?.id ?? chatId;
-  const userId = process.env.LEDGER_USER_ID!; // Supabase auth UUID
+  const userId = process.env.LEDGER_USER_ID!;
   const today = new Date().toISOString().split("T")[0];
 
-  // Fetch user's category and budget lists once for list-grounded OCR
   const [userCategories, userBuckets] = await Promise.all([
     db.select({ id: categories.id, name: categories.name })
       .from(categories)
@@ -122,10 +87,8 @@ export async function POST(req: NextRequest) {
   ]);
 
   // ── 3. Photo / document branch ────────────────────────────────────────────
-  // Telegram sends photos as message.photo (compressed JPEG) or
-  // message.document (when "Send as file" is chosen — PDF or raw image).
   let fileId: string | null = null;
-  let fileMime = "image/jpeg"; // default for compressed Telegram photos
+  let fileMime = "image/jpeg";
 
   if (message.photo && message.photo.length > 0) {
     fileId = message.photo[message.photo.length - 1].file_id;
@@ -141,10 +104,8 @@ export async function POST(req: NextRequest) {
   if (fileId) {
     let receiptUrl: string | null = null;
     let ocrResult: OcrResult | null = null;
-    let rawOcrText: string | null = null;
     let status = "pending_ocr";
 
-    // Download file
     let imageBuffer: Buffer;
     try {
       imageBuffer = await downloadTelegramFile(fileId);
@@ -154,39 +115,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Upload to Supabase Storage
     try {
       receiptUrl = await uploadReceiptImage(imageBuffer, telegramUserId);
     } catch (err) {
       console.error("Storage upload failed:", err);
     }
 
-    // Run OCR with list-grounded prompting
     try {
       const ocr = await runOcr(imageBuffer, fileMime, { categories: userCategories, budgets: userBuckets });
       ocrResult = ocr.result;
-      rawOcrText = ocr.rawText;
       status = "pending_review";
     } catch (err) {
       console.error("OCR failed:", err);
     }
 
-    // Insert expense row
     try {
-      await insertExpense({
+      await db.insert(transactions).values({
         user_id: userId,
         source: "telegram",
         status,
+        direction: "debit",
+        type: "purchase",
         receipt_url: receiptUrl,
-        raw_ocr_text: rawOcrText,
-        merchant: ocrResult?.merchant ?? null,
-        amount: ocrResult?.amount ?? null,
+        payee_name: ocrResult?.payee_name ?? null,
+        amount: ocrResult?.amount != null ? String(ocrResult.amount) : null,
         currency: ocrResult?.currency ?? "JMD",
         date: ocrResult?.date ?? today,
         category_id: ocrResult?.category_id ?? null,
         bucket_id: ocrResult?.bucket_id ?? null,
         notes: ocrResult?.note ?? null,
-        created_at: new Date().toISOString(),
       });
     } catch (err) {
       console.error("DB insert failed:", err);
@@ -194,7 +151,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Reply
     if (ocrResult) {
       const currency = ocrResult.currency || "JMD";
       const amountDisplay = ocrResult.amount != null
@@ -205,7 +161,7 @@ export async function POST(req: NextRequest) {
         : "Uncategorised";
       await sendTelegramMessage(
         chatId,
-        `✅ Got it — ${ocrResult.merchant} • ${amountDisplay} • ${catName}. Open Ledger to confirm.`
+        `✅ Got it — ${ocrResult.payee_name} • ${amountDisplay} • ${catName}. Open Ledger to confirm.`
       );
     } else {
       await sendTelegramMessage(chatId, "📎 Image saved. OCR is pending — open Ledger to review and categorise.");
@@ -227,17 +183,15 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      await insertExpense({
+      await db.insert(transactions).values({
         user_id: userId,
         source: "manual",
         status: "pending_review",
-        receipt_url: null,
-        raw_ocr_text: text,
-        merchant: null,
-        amount: null,
+        direction: "debit",
+        type: "purchase",
         currency: "JMD",
         date: today,
-        created_at: new Date().toISOString(),
+        memo: text,
       });
     } catch (err) {
       console.error("Manual insert failed:", err);
@@ -249,6 +203,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // Unhandled message type — acknowledge silently
   return NextResponse.json({ ok: true });
 }

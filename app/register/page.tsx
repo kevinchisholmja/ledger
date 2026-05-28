@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { expenses, categories, buckets } from "@/lib/db/schema";
+import { transactions, categories, buckets, bankAccounts } from "@/lib/db/schema";
 import { eq, and, sql, asc } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
 import RegisterClient, { type RegisterRow } from "./RegisterClient";
@@ -35,53 +35,62 @@ export default async function RegisterPage() {
   const [rows, pendingCount] = await Promise.all([
     db
       .select({
-        id: expenses.id,
-        merchant: expenses.merchant,
-        amount: expenses.amount,
-        currency: expenses.currency,
-        date: expenses.date,
-        status: expenses.status,
-        source: expenses.source,
-        notes: expenses.notes,
-        receipt_url: expenses.receipt_url,
+        id: transactions.id,
+        payee_name: transactions.payee_name,
+        amount: transactions.amount,
+        currency: transactions.currency,
+        date: transactions.date,
+        invoice_date: transactions.invoice_date,
+        reference_num: transactions.reference_num,
+        status: transactions.status,
+        source: transactions.source,
+        notes: transactions.notes,
+        receipt_url: transactions.receipt_url,
+        cleared: transactions.cleared,
+        direction: transactions.direction,
+        account_name: bankAccounts.name,
         category_name: categories.name,
         bucket_name: buckets.name,
       })
-      .from(expenses)
-      .leftJoin(categories, eq(expenses.category_id, categories.id))
-      .leftJoin(buckets, eq(expenses.bucket_id, buckets.id))
-      .where(eq(expenses.user_id, user.id))
-      .orderBy(asc(expenses.date), asc(expenses.created_at)),
+      .from(transactions)
+      .leftJoin(categories, eq(transactions.category_id, categories.id))
+      .leftJoin(buckets, eq(transactions.bucket_id, buckets.id))
+      .leftJoin(bankAccounts, eq(transactions.account_id, bankAccounts.id))
+      .where(eq(transactions.user_id, user.id))
+      .orderBy(asc(transactions.date), asc(transactions.created_at)),
+
     db
       .select({ count: sql<number>`count(*)::int` })
-      .from(expenses)
-      .where(and(eq(expenses.user_id, user.id), sql`status IN ('pending_review', 'pending_ocr')`))
+      .from(transactions)
+      .where(and(eq(transactions.user_id, user.id), sql`status IN ('pending_review', 'pending_ocr')`))
       .then((r: { count: number }[]) => r[0]?.count ?? 0),
   ]);
 
-  // Compute running balance (all current rows are debits — credits are $0 for now)
+  // Compute running balance — debits reduce balance, credits increase it
   let balance = 0;
   const registerRows: RegisterRow[] = rows.map((r) => {
-    const debit = r.amount ? Number(r.amount) : 0;
-    const credit = 0; // Phase A3+: will detect from direction column
+    const isDebit = r.direction === "debit";
+    const amt = r.amount ? Number(r.amount) : 0;
+    const debit = isDebit ? amt : 0;
+    const credit = isDebit ? 0 : amt;
     balance = balance - debit + credit;
     return {
       id: r.id,
-      account_name: null,                  // Phase A3+: join to bank_accounts via account_id
+      account_name: r.account_name ?? null,
       date: r.date,
-      invoice_date: null,                  // Phase A3+: new column on transactions table
-      reference_num: null,                 // Phase A3+: new column on transactions table
-      merchant: r.merchant,
+      invoice_date: r.invoice_date ?? null,
+      reference_num: r.reference_num ?? null,
+      payee_name: r.payee_name ?? null,
       category_name: r.category_name ?? null,
       bucket_name: r.bucket_name ?? null,
-      notes: r.notes,
+      notes: r.notes ?? null,
       source: r.source,
-      cleared: r.status === "confirmed",   // Phase A3+: replaced by real cleared boolean
-      debit: r.amount,
-      credit: null,                        // Phase A3+: credit transactions
+      cleared: r.cleared,
+      debit: isDebit ? r.amount : null,
+      credit: isDebit ? null : r.amount,
       currency: r.currency,
       running_balance: balance,
-      receipt_url: r.receipt_url,
+      receipt_url: r.receipt_url ?? null,
     };
   });
 
@@ -132,15 +141,9 @@ export default async function RegisterPage() {
           <div>
             <h1 className="text-base font-semibold text-gray-900">Transaction Register</h1>
             <p className="text-xs text-gray-400 mt-0.5">
-              {totalRows} transactions · {confirmedRows} confirmed ·{" "}
-              {totalRows - confirmedRows} pending
+              {totalRows} transactions · {confirmedRows} cleared ·{" "}
+              {totalRows - confirmedRows} uncleared
             </p>
-          </div>
-          <div className="flex items-center gap-4 text-xs text-gray-400">
-            <span>
-              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />
-              Phase A2 — columns marked ─ activate in Phase A3
-            </span>
           </div>
         </div>
 

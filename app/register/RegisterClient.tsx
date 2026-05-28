@@ -5,25 +5,17 @@ import { formatCurrency } from "@/lib/format";
 
 export interface RegisterRow {
   id: string;
-  // Account (Phase A3+: will come from bank_accounts join)
   account_name: string | null;
-  // Dates
   date: string;
-  invoice_date: string | null;       // Phase A3+
-  // Reference
-  reference_num: string | null;      // Phase A3+
-  // Payee
-  merchant: string | null;
+  invoice_date: string | null;
+  reference_num: string | null;
+  payee_name: string | null;
   // Classification
   category_name: string | null;
   bucket_name: string | null;
-  // Details
   notes: string | null;
-  // Provenance
   source: string;
-  // Reconciliation
-  cleared: boolean;                  // Phase A3+: real cleared column; for now status=confirmed
-  // Amounts (all current rows are debits — credit column will populate in Phase A3+)
+  cleared: boolean;
   debit: string | null;
   credit: string | null;
   currency: string;
@@ -61,17 +53,6 @@ export default function RegisterClient({ rows }: { rows: RegisterRow[] }) {
 
   return (
     <div className="w-full overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
-      {/* Phase notice */}
-      <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center gap-2">
-        <span className="text-amber-700 text-xs font-medium">
-          Phase A2 view — columns marked
-          <span className="font-mono bg-amber-100 rounded px-1 mx-1">─</span>
-          will populate in Phase A3 (data migration).
-          All current transactions are debits (expense model).
-          CREDIT column activates in Phase A3.
-        </span>
-      </div>
-
       <table className="w-full border-collapse text-sm min-w-[1100px]">
         <thead>
           <tr>
@@ -154,7 +135,7 @@ export default function RegisterClient({ rows }: { rows: RegisterRow[] }) {
                   {/* Payee */}
                   <td className={TD}>
                     <span className="font-medium text-gray-900 max-w-[140px] truncate block">
-                      {row.merchant ?? <span className="text-gray-400 italic">Unknown</span>}
+                      {row.payee_name ?? <span className="text-gray-400 italic">Unknown</span>}
                     </span>
                   </td>
 

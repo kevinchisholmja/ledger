@@ -147,10 +147,10 @@ export const payees = pgTable("payees", {
 export const transactions = pgTable("transactions", {
   id: uuid("id").primaryKey().defaultRandom(),
   user_id: uuid("user_id").notNull(),
-  account_id: uuid("account_id").notNull().references(() => bankAccounts.id),
+  account_id: uuid("account_id").references(() => bankAccounts.id),
   direction: text("direction").notNull(),          // 'debit' | 'credit'
   type: text("type").notNull(),                    // 'purchase' | 'income' | 'transfer_out' | ...
-  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  amount: numeric("amount", { precision: 12, scale: 2 }), // nullable — unknown for pending_ocr
   currency: text("currency").notNull().default("JMD"),
   date: text("date").notNull(),                    // paid/settlement date (YYYY-MM-DD)
   invoice_date: text("invoice_date"),              // obligation date (accrual, optional)

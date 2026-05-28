@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { expenses, categories, buckets } from "@/lib/db/schema";
+import { transactions, categories, buckets } from "@/lib/db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
 import ReviewCard from "./ReviewCard";
@@ -35,12 +35,12 @@ export default async function ReviewPage() {
   const [pending, userCategories, userBuckets] = await Promise.all([
     db
       .select()
-      .from(expenses)
+      .from(transactions)
       .where(and(
-        eq(expenses.user_id, user.id),
-        or(eq(expenses.status, "pending_review"), eq(expenses.status, "pending_ocr"))
+        eq(transactions.user_id, user.id),
+        or(eq(transactions.status, "pending_review"), eq(transactions.status, "pending_ocr"))
       ))
-      .orderBy(desc(expenses.created_at)),
+      .orderBy(desc(transactions.created_at)),
 
     db.select().from(categories).where(eq(categories.user_id, user.id)).orderBy(categories.name),
 
@@ -121,10 +121,10 @@ export default async function ReviewPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {pending.map((expense) => (
+              {pending.map((tx) => (
                 <ReviewCard
-                  key={expense.id}
-                  expense={expense}
+                  key={tx.id}
+                  tx={tx}
                   categories={userCategories}
                   budgets={userBuckets}
                 />

@@ -207,11 +207,52 @@ All expense preset categories now explicitly carry `type: 'expense'`.
 
 ---
 
-## Next: Phase A3 — Migrate Existing Data
-**Status:** Planned
+## Phase A3 — Data Migration
+**Status:** Skipped (no important data in DB)
 
-Copy `expenses` → `transactions` (direction=debit, type=purchase, account=Unassigned).
-Copy `bank_entries` → `transactions` (source=csv, cleared=true).
-Pre-step: create "Unassigned" sentinel bank account per user.
+No data migration needed. User confirmed DB was empty — truncated `expenses` and `bank_entries`.
+Jumped directly to Phase A4.
 
-See `docs/SPEC.md §6` for the complete migration plan.
+---
+
+## Phase A4 — Full Rewrite: expenses → transactions
+**Date:** 2026-05-27 · **Status:** Complete
+
+Rewrote all application code to read/write from the v2 `transactions` table.
+No functional change from the user's perspective — all pages and flows work identically.
+
+**Migration applied:**
+- `20240014_make_transactions_amount_account_nullable.sql` — made `amount` and `account_id`
+  nullable on `transactions` (amount unknown for pending_ocr entries; account assigned later)
+
+**Files changed (17 total):**
+- `lib/ocr.ts` — `merchant` → `payee_name` in OcrResult
+- `app/api/upload/route.ts` — Drizzle insert into `transactions`
+- `app/api/shortcut/upload/route.ts` — Drizzle insert into `transactions`
+- `app/api/telegram/webhook/route.ts` — Drizzle insert into `transactions`; text entry uses `memo`
+- `app/api/transactions/[id]/route.ts` — NEW: PATCH + DELETE for v2 transactions
+- `app/api/transactions/[id]/retry-ocr/route.ts` — NEW: retry OCR for v2 transactions
+- `app/api/review/count/route.ts` — count from `transactions`
+- `app/review/page.tsx` — query from `transactions`
+- `app/review/ReviewCard.tsx` — uses `Transaction` type; `payee_name`, `memo`; new API path
+- `app/components/TransactionListClient.tsx` — new TxRow: `payee_name`, `direction`, `category_name`
+- `app/components/TransactionModal.tsx` — new API path `/api/transactions/[id]`
+- `app/transactions/page.tsx` — query from `transactions` with category join
+- `app/page.tsx` — dashboard aggregates from `transactions`; recent list shows `payee_name`
+- `app/accounts/page.tsx` — query from `transactions`; sidebar now includes Register
+- `app/plan/page.tsx` — spending aggregates from `transactions`
+- `app/register/page.tsx` — real `invoice_date`, `reference_num`, `cleared`, `direction` columns
+- `app/register/RegisterClient.tsx` — `merchant` → `payee_name`; phase notice removed
+- `app/api/expenses/` — DELETED (replaced by `app/api/transactions/`)
+
+**Key field mapping (v1 → v2):**
+| Old (expenses) | New (transactions) |
+|---|---|
+| `merchant` | `payee_name` |
+| `raw_ocr_text` | `memo` (for text-only Telegram messages) |
+| `confirmed_category` (text) | dropped — `category_id` FK is authoritative |
+| `ai_suggested_category` | dropped — OCR writes to `category_id` directly |
+| `expense_source` enum | `source text` |
+| `expense_status` enum | `status text` |
+
+→ `activity/2026/2026-05-27.md`

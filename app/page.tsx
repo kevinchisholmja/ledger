@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { seedPresetsIfEmpty } from "@/lib/seed";
 import { db } from "@/lib/db/client";
-import { buckets, expenses } from "@/lib/db/schema";
+import { buckets, transactions, categories } from "@/lib/db/schema";
 import { eq, and, or, ne, gte, lte, isNotNull, desc, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
 import PeriodSelector from "@/app/components/PeriodSelector";
@@ -137,44 +137,56 @@ export default async function DashboardPage({
 
   const viewDays = VIEW_PERIOD_DAYS[view];
 
-  const [userBuckets, spendingByBucket, totalSpentInPeriod, recentExpenses, pendingCount] = await Promise.all([
+  const [userBuckets, spendingByBucket, totalSpentInPeriod, recentTransactions, pendingCount] = await Promise.all([
     db.select().from(buckets)
       .where(and(eq(buckets.user_id, user.id), eq(buckets.active, true)))
       .orderBy(buckets.name),
 
     db.select({
-      bucket_id: expenses.bucket_id,
-      total: sql<string>`COALESCE(SUM(${expenses.amount}::numeric), 0)`,
+      bucket_id: transactions.bucket_id,
+      total: sql<string>`COALESCE(SUM(${transactions.amount}::numeric), 0)`,
     })
-    .from(expenses)
+    .from(transactions)
     .where(and(
-      eq(expenses.user_id, user.id),
-      gte(expenses.date, start),
-      lte(expenses.date, end),
-      ne(expenses.status, "pending_ocr"),
-      isNotNull(expenses.bucket_id),
-      isNotNull(expenses.amount),
+      eq(transactions.user_id, user.id),
+      gte(transactions.date, start),
+      lte(transactions.date, end),
+      ne(transactions.status, "pending_ocr"),
+      isNotNull(transactions.bucket_id),
+      isNotNull(transactions.amount),
     ))
-    .groupBy(expenses.bucket_id),
+    .groupBy(transactions.bucket_id),
 
-    db.select({ total: sql<string>`COALESCE(SUM(${expenses.amount}::numeric), 0)` })
-    .from(expenses)
+    db.select({ total: sql<string>`COALESCE(SUM(${transactions.amount}::numeric), 0)` })
+    .from(transactions)
     .where(and(
-      eq(expenses.user_id, user.id),
-      gte(expenses.date, start),
-      lte(expenses.date, end),
-      ne(expenses.status, "pending_ocr"),
-      isNotNull(expenses.amount),
+      eq(transactions.user_id, user.id),
+      gte(transactions.date, start),
+      lte(transactions.date, end),
+      ne(transactions.status, "pending_ocr"),
+      isNotNull(transactions.amount),
     ))
     .then((r) => Number(r[0]?.total ?? 0)),
 
-    db.select().from(expenses)
-      .where(eq(expenses.user_id, user.id))
-      .orderBy(desc(expenses.created_at))
-      .limit(8),
+    db.select({
+      id: transactions.id,
+      payee_name: transactions.payee_name,
+      memo: transactions.memo,
+      amount: transactions.amount,
+      currency: transactions.currency,
+      date: transactions.date,
+      status: transactions.status,
+      direction: transactions.direction,
+      category_name: categories.name,
+    })
+    .from(transactions)
+    .leftJoin(categories, eq(transactions.category_id, categories.id))
+    .where(eq(transactions.user_id, user.id))
+    .orderBy(desc(transactions.created_at))
+    .limit(8),
 
-    db.select({ count: sql<number>`count(*)::int` }).from(expenses)
-      .where(and(eq(expenses.user_id, user.id), or(eq(expenses.status, "pending_review"), eq(expenses.status, "pending_ocr"))))
+    db.select({ count: sql<number>`count(*)::int` }).from(transactions)
+      .where(and(eq(transactions.user_id, user.id), or(eq(transactions.status, "pending_review"), eq(transactions.status, "pending_ocr"))))
       .then((r) => r[0]?.count ?? 0),
   ]);
 
@@ -415,38 +427,36 @@ export default async function DashboardPage({
                 <Link href="/transactions" className="text-xs text-blue-600 hover:text-blue-500 transition-colors">See all →</Link>
               </div>
 
-              {recentExpenses.length === 0 ? (
+              {recentTransactions.length === 0 ? (
                 <div className="rounded-2xl bg-white border border-gray-200 border-dashed px-6 py-10 text-center">
                   <p className="text-gray-500 text-sm">No transactions yet</p>
                   <p className="text-gray-400 text-xs mt-1">Send a receipt photo to your Telegram bot</p>
                 </div>
               ) : (
                 <div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">
-                  {recentExpenses.map((e) => (
+                  {recentTransactions.map((e) => (
                     <div key={e.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 transition-colors">
                       <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 text-base">
-                        {categoryIcon(e.confirmed_category ?? e.ai_suggested_category)}
+                        {categoryIcon(e.category_name)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          {e.merchant ?? e.raw_ocr_text?.slice(0, 40) ?? "—"}
+                          {e.payee_name ?? e.memo?.slice(0, 40) ?? "—"}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-xs text-gray-400">{e.date}</span>
-                          {(e.confirmed_category ?? e.ai_suggested_category) && (
+                          {e.category_name && (
                             <>
                               <span className="text-gray-300">·</span>
-                              <span className="text-xs text-gray-400 truncate">
-                                {e.confirmed_category ?? e.ai_suggested_category}
-                              </span>
+                              <span className="text-xs text-gray-400 truncate">{e.category_name}</span>
                             </>
                           )}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
                         {e.amount != null ? (
-                          <p className="text-sm font-semibold text-gray-900 tabular-nums">
-                            {formatCurrency(e.amount, e.currency)}
+                          <p className={`text-sm font-semibold tabular-nums ${e.direction === "credit" ? "text-emerald-600" : "text-gray-900"}`}>
+                            {e.direction === "credit" ? "+" : ""}{formatCurrency(Number(e.amount), e.currency)}
                           </p>
                         ) : (
                           <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">

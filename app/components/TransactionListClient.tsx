@@ -6,15 +6,16 @@ import TransactionModal from "./TransactionModal";
 
 export interface TxRow {
   id: string;
-  merchant: string | null;
+  payee_name: string | null;
   amount: string | null;
   currency: string;
   date: string;
   status: string;
   source: string;
+  direction: string;
   bucket_id: string | null;
   category_id: string | null;
-  confirmed_category: string | null;
+  category_name: string | null;
   notes: string | null;
   receipt_url: string | null;
 }
@@ -47,7 +48,7 @@ function TransactionRow({
 }) {
   const hasAmount = tx.amount != null && tx.status !== "pending_ocr";
   const budgetName = tx.bucket_id ? bucketMap.get(tx.bucket_id) : null;
-  const categoryName = tx.confirmed_category;
+  const isCredit = tx.direction === "credit";
 
   return (
     <div
@@ -58,9 +59,15 @@ function TransactionRow({
       {/* Mobile layout */}
       <div className="md:hidden flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-gray-900 truncate">{tx.merchant ?? "—"}</p>
-          <p className={`text-sm font-semibold tabular-nums shrink-0 ${hasAmount ? "text-gray-900" : "text-gray-400"}`}>
-            {hasAmount ? formatCurrency(Number(tx.amount), tx.currency) : "pending"}
+          <p className="text-sm font-medium text-gray-900 truncate">{tx.payee_name ?? "—"}</p>
+          <p className={`text-sm font-semibold tabular-nums shrink-0 ${
+            hasAmount
+              ? isCredit ? "text-emerald-600" : "text-gray-900"
+              : "text-gray-400"
+          }`}>
+            {hasAmount
+              ? `${isCredit ? "+" : ""}${formatCurrency(Number(tx.amount), tx.currency)}`
+              : "pending"}
           </p>
         </div>
         <div className="flex items-center gap-2 mt-0.5">
@@ -74,21 +81,27 @@ function TransactionRow({
       {/* Desktop layout */}
       <span className="hidden md:block text-sm text-gray-400 tabular-nums">{tx.date}</span>
       <span className="hidden md:block text-sm font-medium text-gray-900 truncate pr-4">
-        {tx.merchant ?? <span className="text-gray-400 italic">No merchant</span>}
+        {tx.payee_name ?? <span className="text-gray-400 italic">No payee</span>}
       </span>
       <span className="hidden md:block text-sm text-gray-500 truncate pr-2">
         {budgetName ?? <span className="text-gray-300">—</span>}
       </span>
       <span className="hidden md:block text-sm text-gray-500 truncate pr-2">
-        {categoryName ?? <span className="text-gray-300">—</span>}
+        {tx.category_name ?? <span className="text-gray-300">—</span>}
       </span>
       <span className="hidden md:flex items-center">
         <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[tx.status] ?? "bg-gray-100 text-gray-500"}`}>
           {STATUS_LABELS[tx.status] ?? tx.status}
         </span>
       </span>
-      <span className={`hidden md:block text-sm font-semibold tabular-nums text-right ${hasAmount ? "text-gray-900" : "text-gray-400"}`}>
-        {hasAmount ? formatCurrency(Number(tx.amount), tx.currency) : "—"}
+      <span className={`hidden md:block text-sm font-semibold tabular-nums text-right ${
+        hasAmount
+          ? isCredit ? "text-emerald-600" : "text-gray-900"
+          : "text-gray-400"
+      }`}>
+        {hasAmount
+          ? `${isCredit ? "+" : ""}${formatCurrency(Number(tx.amount), tx.currency)}`
+          : "—"}
       </span>
     </div>
   );
@@ -124,7 +137,6 @@ export default function TransactionListClient({
 
   return (
     <>
-      {/* Modal */}
       {openTx && (
         <TransactionModal
           tx={openTx}
@@ -144,7 +156,7 @@ export default function TransactionListClient({
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Budget</span>
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Category</span>
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Status</span>
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right">Outflow</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right">Amount</span>
       </div>
 
       <div className="rounded-b-2xl md:rounded-t-none rounded-2xl bg-white border border-gray-200 overflow-hidden divide-y divide-gray-100">

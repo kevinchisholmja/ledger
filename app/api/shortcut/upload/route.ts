@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { runOcr } from "@/lib/ocr";
 import { db } from "@/lib/db/client";
-import { categories, buckets } from "@/lib/db/schema";
+import { categories, buckets, transactions } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
 const ALLOWED_MIME_TYPES = [
@@ -40,18 +40,12 @@ export async function POST(req: NextRequest) {
 
   const file = formData.get("file");
   if (!file || !(file instanceof Blob)) {
-    return NextResponse.json(
-      { error: "Missing 'file' field in form data" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing 'file' field in form data" }, { status: 400 });
   }
 
   const mimeType = file.type || "image/jpeg";
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-    return NextResponse.json(
-      { error: `Unsupported file type: ${mimeType}` },
-      { status: 415 }
-    );
+    return NextResponse.json({ error: `Unsupported file type: ${mimeType}` }, { status: 415 });
   }
 
   const userId = process.env.LEDGER_USER_ID!;
@@ -89,45 +83,38 @@ export async function POST(req: NextRequest) {
   // ── 5. Run OCR ────────────────────────────────────────────────────────────
   let status = "pending_ocr";
   let ocrResult = null;
-  let rawOcrText: string | null = null;
 
   try {
     const ocr = await runOcr(imageBuffer, mimeType, { categories: userCategories, budgets: userBuckets });
     ocrResult = ocr.result;
-    rawOcrText = ocr.rawText;
     status = "pending_review";
   } catch (err) {
     console.error("OCR failed:", err);
   }
 
-  // ── 6. Insert expense ─────────────────────────────────────────────────────
-  const { error: insertError } = await supabase.from("expenses").insert({
+  // ── 6. Insert transaction ─────────────────────────────────────────────────
+  await db.insert(transactions).values({
     user_id: userId,
     source: "shortcut",
     status,
+    direction: "debit",
+    type: "purchase",
     receipt_url: receiptUrl,
-    raw_ocr_text: rawOcrText,
-    merchant: ocrResult?.merchant ?? null,
-    amount: ocrResult?.amount ?? null,
+    payee_name: ocrResult?.payee_name ?? null,
+    amount: ocrResult?.amount != null ? String(ocrResult.amount) : null,
     currency: ocrResult?.currency ?? "JMD",
     date: ocrResult?.date ?? today,
     category_id: ocrResult?.category_id ?? null,
     bucket_id: ocrResult?.bucket_id ?? null,
     notes: ocrResult?.note ?? null,
-    created_at: new Date().toISOString(),
   });
-
-  if (insertError) {
-    console.error("DB insert error:", insertError.message);
-    return NextResponse.json({ error: "Failed to save expense" }, { status: 500 });
-  }
 
   // ── 7. Respond ────────────────────────────────────────────────────────────
   if (ocrResult) {
     return NextResponse.json({
       ok: true,
       status: "pending_review",
-      merchant: ocrResult.merchant,
+      payee_name: ocrResult.payee_name,
       amount: ocrResult.amount,
       currency: ocrResult.currency,
       date: ocrResult.date,

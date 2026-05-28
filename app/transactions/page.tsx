@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { expenses, buckets, categories } from "@/lib/db/schema";
+import { transactions, buckets, categories } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
 import TransactionListClient from "@/app/components/TransactionListClient";
@@ -32,24 +32,26 @@ function SidebarItem({
 export default async function TransactionsPage() {
   const user = await requireUser();
 
-  const [allExpenses, userBuckets, userCategories, pendingCount] = await Promise.all([
+  const [allTransactions, userBuckets, userCategories, pendingCount] = await Promise.all([
     db.select({
-      id: expenses.id,
-      merchant: expenses.merchant,
-      amount: expenses.amount,
-      currency: expenses.currency,
-      date: expenses.date,
-      status: expenses.status,
-      source: expenses.source,
-      bucket_id: expenses.bucket_id,
-      category_id: expenses.category_id,
-      confirmed_category: expenses.confirmed_category,
-      notes: expenses.notes,
-      receipt_url: expenses.receipt_url,
+      id: transactions.id,
+      payee_name: transactions.payee_name,
+      amount: transactions.amount,
+      currency: transactions.currency,
+      date: transactions.date,
+      status: transactions.status,
+      source: transactions.source,
+      direction: transactions.direction,
+      bucket_id: transactions.bucket_id,
+      category_id: transactions.category_id,
+      category_name: categories.name,
+      notes: transactions.notes,
+      receipt_url: transactions.receipt_url,
     })
-      .from(expenses)
-      .where(eq(expenses.user_id, user.id))
-      .orderBy(desc(expenses.date), desc(expenses.created_at)),
+      .from(transactions)
+      .leftJoin(categories, eq(transactions.category_id, categories.id))
+      .where(eq(transactions.user_id, user.id))
+      .orderBy(desc(transactions.date), desc(transactions.created_at)),
 
     db.select({ id: buckets.id, name: buckets.name })
       .from(buckets)
@@ -62,8 +64,8 @@ export default async function TransactionsPage() {
       .orderBy(categories.name),
 
     db.select({ count: sql<number>`count(*)::int` })
-      .from(expenses)
-      .where(and(eq(expenses.user_id, user.id), sql`status IN ('pending_review', 'pending_ocr')`))
+      .from(transactions)
+      .where(and(eq(transactions.user_id, user.id), sql`status IN ('pending_review', 'pending_ocr')`))
       .then((r) => r[0]?.count ?? 0),
   ]);
 
@@ -104,18 +106,18 @@ export default async function TransactionsPage() {
         <header className="md:hidden sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
           <Link href="/" className="text-gray-400 hover:text-gray-700 transition-colors text-lg">‹</Link>
           <h1 className="text-base font-semibold text-gray-900">Transactions</h1>
-          <span className="ml-auto text-xs text-gray-400">{allExpenses.length} total</span>
+          <span className="ml-auto text-xs text-gray-400">{allTransactions.length} total</span>
         </header>
 
         {/* Desktop header */}
         <div className="hidden md:flex sticky top-0 z-10 bg-white border-b border-gray-200 px-8 py-3 items-center justify-between">
           <h1 className="text-base font-semibold text-gray-900">Transactions</h1>
-          <span className="text-xs text-gray-400">{allExpenses.length} total</span>
+          <span className="text-xs text-gray-400">{allTransactions.length} total</span>
         </div>
 
         <main className="px-4 md:px-8 py-4 pb-24 max-w-5xl">
           <TransactionListClient
-            transactions={allExpenses}
+            transactions={allTransactions}
             budgets={userBuckets}
             categories={userCategories}
           />

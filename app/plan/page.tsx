@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { buckets, categories, expenses } from "@/lib/db/schema";
+import { buckets, categories, transactions } from "@/lib/db/schema";
 import { eq, and, ne, gte, lte, isNotNull, or, sql } from "drizzle-orm";
 import { BUDGET_PERIOD_DAYS } from "@/lib/period";
 import PlanClient from "./PlanClient";
@@ -84,24 +84,24 @@ export default async function PlanPage({
     .orderBy(categories.name, buckets.name),
 
     db.select({
-      bucket_id: expenses.bucket_id,
-      total: sql<string>`COALESCE(SUM(${expenses.amount}::numeric), 0)`,
+      bucket_id: transactions.bucket_id,
+      total: sql<string>`COALESCE(SUM(${transactions.amount}::numeric), 0)`,
     })
-    .from(expenses)
+    .from(transactions)
     .where(and(
-      eq(expenses.user_id, user.id),
-      gte(expenses.date, start),
-      lte(expenses.date, end),
-      ne(expenses.status, "pending_ocr"),
-      isNotNull(expenses.bucket_id),
-      isNotNull(expenses.amount),
+      eq(transactions.user_id, user.id),
+      gte(transactions.date, start),
+      lte(transactions.date, end),
+      ne(transactions.status, "pending_ocr"),
+      isNotNull(transactions.bucket_id),
+      isNotNull(transactions.amount),
     ))
-    .groupBy(expenses.bucket_id),
+    .groupBy(transactions.bucket_id),
 
-    db.select({ count: sql<number>`count(*)::int` }).from(expenses)
+    db.select({ count: sql<number>`count(*)::int` }).from(transactions)
       .where(and(
-        eq(expenses.user_id, user.id),
-        or(eq(expenses.status, "pending_review"), eq(expenses.status, "pending_ocr")),
+        eq(transactions.user_id, user.id),
+        or(eq(transactions.status, "pending_review"), eq(transactions.status, "pending_ocr")),
       ))
       .then((r) => r[0]?.count ?? 0),
   ]);
