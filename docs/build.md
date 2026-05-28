@@ -255,4 +255,28 @@ No functional change from the user's perspective — all pages and flows work id
 | `expense_source` enum | `source text` |
 | `expense_status` enum | `status text` |
 
-→ `activity/2026/2026-05-27.md`
+→ `activity/2026/2026-05-27b.md`
+
+---
+
+## Phase A5a — Type-Aware Entry Form + Payee Autocomplete
+**Date:** 2026-05-27 · **Status:** Complete
+
+First batch of new features enabled by the v2 model. Adds manual transaction
+creation for all 8 transaction types without requiring a receipt upload.
+
+**New API routes:**
+- `GET /api/payees` — list payees for autocomplete
+- `POST /api/transactions` — create purchase, income, refund, bank_fee, interest,
+  chargeback, or opening_balance; auto-creates/links payees by name
+- `POST /api/transactions/transfer` — create matched transfer pair (two rows linked
+  via `transfer_pair_id`)
+
+**New components:**
+- `TransactionEntryForm` — type-aware modal; 8 types; fields morph per type;
+  category list filtered to expense/income based on type; payee datalist with
+  auto-fill of category/budget from payee defaults; new payees created on first use
+- `UploadButton` updated — FAB now shows two-option menu: "Add manually" → form,
+  "Upload receipt" → existing OCR flow
+
+→ `activity/2026/2026-05-27c.md`

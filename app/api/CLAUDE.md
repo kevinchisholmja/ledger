@@ -25,6 +25,9 @@ export async function METHOD(req: NextRequest) {
 /api/categories           POST, GET, DELETE /[id]
 /api/accounts             POST, GET
 /api/accounts/[id]        PATCH, DELETE
+/api/payees               GET (list for autocomplete)
+/api/transactions         POST (create — purchase/income/refund/bank_fee/interest/chargeback/opening_balance)
+/api/transactions/transfer POST (create transfer pair — two rows linked via transfer_pair_id)
 /api/transactions/[id]    PATCH (edit), DELETE
 /api/transactions/[id]/retry-ocr POST
 /api/review/count         GET (pending badge)
