@@ -22,26 +22,6 @@ export const budgetPeriodEnum = pgEnum("budget_period", [
   "decennial",
 ]);
 
-export const expenseSourceEnum = pgEnum("expense_source", [
-  "telegram",
-  "shortcut",
-  "manual",
-  "csv",
-]);
-
-export const expenseStatusEnum = pgEnum("expense_status", [
-  "pending_ocr",
-  "pending_review",
-  "confirmed",
-  "reconciled",
-]);
-
-export const matchStatusEnum = pgEnum("match_status", [
-  "unmatched",
-  "matched",
-  "ignored",
-]);
-
 // ── Tables ───────────────────────────────────────────────────────────────────
 
 export const categories = pgTable("categories", {
@@ -70,39 +50,6 @@ export const buckets = pgTable("buckets", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-export const expenses = pgTable("expenses", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  user_id: uuid("user_id").notNull(),
-  source: expenseSourceEnum("source").notNull(),
-  status: expenseStatusEnum("status").notNull().default("pending_review"),
-  receipt_url: text("receipt_url"),
-  raw_ocr_text: text("raw_ocr_text"),
-  merchant: text("merchant"),
-  amount: numeric("amount", { precision: 12, scale: 2 }), // nullable — migration 20240004
-  currency: text("currency").notNull().default("JMD"),
-  date: text("date").notNull(),
-  bucket_id: uuid("bucket_id").references(() => buckets.id),
-  ai_suggested_category: text("ai_suggested_category"),
-  confirmed_category: text("confirmed_category"),
-  category_id: uuid("category_id").references(() => categories.id),
-  notes: text("notes"),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
-
-export const bankEntries = pgTable("bank_entries", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  user_id: uuid("user_id").notNull(),
-  type: text("type").notNull(),
-  date: text("date").notNull(),
-  description: text("description"),
-  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(), // always positive
-  currency: text("currency").notNull().default("JMD"),
-  match_status: matchStatusEnum("match_status").notNull().default("unmatched"),
-  expense_id: uuid("expense_id").references(() => expenses.id),
-  raw_row: text("raw_row"),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
 
 export const bankAccounts = pgTable("bank_accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -185,15 +132,11 @@ export const budgetAssignments = pgTable("budget_assignments", {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-// v1 types (current — being replaced in Phase A3+)
 export type Category = typeof categories.$inferSelect;
 export type Bucket = typeof buckets.$inferSelect;
-export type Expense = typeof expenses.$inferSelect;
-export type BankEntry = typeof bankEntries.$inferSelect;
 export type BankAccount = typeof bankAccounts.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
 
-export type NewExpense = typeof expenses.$inferInsert;
 export type NewBucket = typeof buckets.$inferInsert;
 export type NewCategory = typeof categories.$inferInsert;
 export type NewBankAccount = typeof bankAccounts.$inferInsert;

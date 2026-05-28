@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { seedPresetsIfEmpty } from "@/lib/seed";
 import { db } from "@/lib/db/client";
-import { categories, expenses } from "@/lib/db/schema";
+import { categories, transactions } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
 import CategoriesClient from "./CategoriesClient";
@@ -37,8 +37,8 @@ export default async function CategoriesPage() {
   const [allCategories, pendingCount] = await Promise.all([
     db.select().from(categories).where(eq(categories.user_id, user.id)).orderBy(categories.name),
     db.select({ count: sql<number>`count(*)::int` })
-      .from(expenses)
-      .where(and(eq(expenses.user_id, user.id), sql`status IN ('pending_review', 'pending_ocr')`))
+      .from(transactions)
+      .where(and(eq(transactions.user_id, user.id), sql`status IN ('pending_review', 'pending_ocr')`))
       .then((r) => r[0]?.count ?? 0),
   ]);
 
