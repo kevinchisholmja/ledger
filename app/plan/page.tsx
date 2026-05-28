@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { buckets, categories, transactions } from "@/lib/db/schema";
+import { buckets, categories, transactions, budgetAssignments } from "@/lib/db/schema";
 import { eq, and, ne, gte, lte, isNotNull, or, sql } from "drizzle-orm";
 import { BUDGET_PERIOD_DAYS } from "@/lib/period";
 import PlanClient from "./PlanClient";
@@ -10,10 +10,10 @@ export interface PlanBudget {
   name: string;
   icon: string | null;
   period: string;
-  nativeAmount: number;
-  monthlyAmount: number;
+  suggested: number;   // buckets.amount prorated — shown as prefill hint when editing
+  assigned: number;    // from budget_assignments this month (0 if no row)
   activity: number;
-  available: number;
+  available: number;   // assigned - activity
   currency: string;
   category_name: string;
   category_id: string | null;
@@ -67,7 +67,7 @@ export default async function PlanPage({
   const { start, end } = getMonthRange(yearMonth);
   const monthLabel = formatYearMonth(yearMonth);
 
-  const [userBuckets, spendingRows, pendingCount] = await Promise.all([
+  const [userBuckets, assignmentRows, spendingRows, incomeRow, pendingCount] = await Promise.all([
     db.select({
       id: buckets.id,
       name: buckets.name,
@@ -83,6 +83,10 @@ export default async function PlanPage({
     .where(and(eq(buckets.user_id, user.id), eq(buckets.active, true)))
     .orderBy(categories.name, buckets.name),
 
+    db.select({ bucket_id: budgetAssignments.bucket_id, amount: budgetAssignments.amount })
+      .from(budgetAssignments)
+      .where(and(eq(budgetAssignments.user_id, user.id), eq(budgetAssignments.month, yearMonth))),
+
     db.select({
       bucket_id: transactions.bucket_id,
       total: sql<string>`COALESCE(SUM(${transactions.amount}::numeric), 0)`,
@@ -95,8 +99,20 @@ export default async function PlanPage({
       ne(transactions.status, "pending_ocr"),
       isNotNull(transactions.bucket_id),
       isNotNull(transactions.amount),
+      eq(transactions.direction, "debit"),
     ))
     .groupBy(transactions.bucket_id),
+
+    db.select({ total: sql<string>`COALESCE(SUM(${transactions.amount}::numeric), 0)` })
+      .from(transactions)
+      .where(and(
+        eq(transactions.user_id, user.id),
+        gte(transactions.date, start),
+        lte(transactions.date, end),
+        eq(transactions.type, "income"),
+        ne(transactions.status, "pending_ocr"),
+        isNotNull(transactions.amount),
+      )),
 
     db.select({ count: sql<number>`count(*)::int` }).from(transactions)
       .where(and(
@@ -106,28 +122,29 @@ export default async function PlanPage({
       .then((r) => r[0]?.count ?? 0),
   ]);
 
+  const assignmentMap = new Map(assignmentRows.map((r) => [r.bucket_id!, Number(r.amount)]));
   const spendMap = new Map(spendingRows.map((s) => [s.bucket_id!, Number(s.total)]));
+  const incomeTotal = Number(incomeRow[0]?.total ?? 0);
 
   const planBudgets: PlanBudget[] = userBuckets.map((b) => {
-    const native = Number(b.amount);
-    const monthly = monthlyProrated(native, b.period);
+    const assigned = assignmentMap.get(b.id) ?? 0;
+    const suggested = monthlyProrated(Number(b.amount), b.period);
     const activity = spendMap.get(b.id) ?? 0;
     return {
       id: b.id,
       name: b.name,
       icon: b.icon,
       period: b.period,
-      nativeAmount: native,
-      monthlyAmount: monthly,
+      suggested,
+      assigned,
       activity,
-      available: monthly - activity,
+      available: assigned - activity,
       currency: b.currency ?? "JMD",
       category_name: b.category_name ?? "Uncategorized",
       category_id: b.category_id,
     };
   });
 
-  // Build groups by category, preserving DB order, then alpha-sort
   const groupMap = new Map<string, PlanBudget[]>();
   for (const b of planBudgets) {
     if (!groupMap.has(b.category_name)) groupMap.set(b.category_name, []);
@@ -140,23 +157,24 @@ export default async function PlanPage({
       name,
       category_id: budgets[0]?.category_id ?? null,
       budgets,
-      totalAssigned: budgets.reduce((s, b) => s + b.monthlyAmount, 0),
+      totalAssigned: budgets.reduce((s, b) => s + b.assigned, 0),
       totalActivity: budgets.reduce((s, b) => s + b.activity, 0),
       totalAvailable: budgets.reduce((s, b) => s + b.available, 0),
     }));
 
-  const totalAssigned = groups.reduce((s, g) => s + g.totalAssigned, 0);
+  const tbbAssigned = assignmentRows.reduce((s, r) => s + Number(r.amount), 0);
+  const tbb = incomeTotal - tbbAssigned;
   const totalActivity = groups.reduce((s, g) => s + g.totalActivity, 0);
-  const totalAvailable = totalAssigned - totalActivity;
 
   return (
     <PlanClient
       groups={groups}
       yearMonth={yearMonth}
       monthLabel={monthLabel}
-      totalAssigned={totalAssigned}
+      tbb={tbb}
+      tbbIncome={incomeTotal}
+      tbbAssigned={tbbAssigned}
       totalActivity={totalActivity}
-      totalAvailable={totalAvailable}
       pendingCount={pendingCount}
       userEmail={user.email ?? ""}
     />

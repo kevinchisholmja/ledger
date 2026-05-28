@@ -83,12 +83,15 @@ export async function POST(req: NextRequest) {
     console.error("OCR failed:", err);
   }
 
+  const txType = ocrResult?.type ?? "purchase";
+  const txDirection = txType === "income" || txType === "refund" || txType === "chargeback" ? "credit" : "debit";
+
   await db.insert(transactions).values({
     user_id: user.id,
     source: "manual",
     status,
-    direction: "debit",
-    type: "purchase",
+    direction: txDirection,
+    type: txType,
     receipt_url: receiptUrl,
     payee_name: ocrResult?.payee_name ?? null,
     amount: ocrResult?.amount != null ? String(ocrResult.amount) : null,

@@ -45,6 +45,7 @@ export default function TransactionModal({
   const [categoryId, setCategoryId] = useState(tx.category_id ?? "");
   const [budgetId, setBudgetId] = useState(tx.bucket_id ?? "");
   const [notes, setNotes] = useState(tx.notes ?? "");
+  const [flagged, setFlagged] = useState(tx.flagged);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -74,6 +75,7 @@ export default function TransactionModal({
         bucket_id: budgetId || null,
         category_id: categoryId || null,
         notes: notes || null,
+        flagged,
         status: tx.status === "pending_review" || tx.status === "pending_ocr"
           ? "confirmed"
           : tx.status,
@@ -212,6 +214,20 @@ export default function TransactionModal({
                 rows={2}
                 className={`${inputCls} resize-none`}
               />
+            </div>
+            <div className="col-span-2">
+              <button
+                type="button"
+                onClick={() => setFlagged((f) => !f)}
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition-colors w-full ${
+                  flagged
+                    ? "bg-amber-50 border border-amber-200 text-amber-700"
+                    : "bg-gray-50 border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-700"
+                }`}
+              >
+                <span className="text-sm leading-none">{flagged ? "⚑" : "⚐"}</span>
+                {flagged ? "Flagged for accountant review" : "Flag for accountant review"}
+              </button>
             </div>
           </div>
         </div>

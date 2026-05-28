@@ -10,6 +10,7 @@ export interface OcrResult {
   amount: number | null;
   currency: string;
   date: string;
+  type: "purchase" | "income" | "refund" | "chargeback" | "bank_fee";
   category_id: string | null;
   bucket_id: string | null;
   note: string | null;
@@ -35,6 +36,7 @@ Schema:
   "amount": number or null — total amount paid (numeric only, no currency symbol),
   "currency": "string — 3-letter ISO code, default JMD if unclear",
   "date": "string — ISO 8601 date YYYY-MM-DD, use today if not shown",
+  "type": "string — one of: purchase, income, refund, chargeback, bank_fee. Use 'purchase' for expenses/payments; 'income' for funds received; 'refund' for returned money; 'chargeback' for bank chargebacks; 'bank_fee' for bank charges/fees",
   "category_id": "string or null — id from the CATEGORIES list that best fits this purchase, null if no good match",
   "bucket_id": "string or null — id from the BUDGETS list that best fits this purchase, null if no good match",
   "note": "string or null — ONLY if no good category or budget match exists, suggest a new name in one sentence (e.g. \\"Consider adding a Pet Supplies category\\"). Otherwise null."

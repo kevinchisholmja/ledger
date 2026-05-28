@@ -50,6 +50,7 @@ export default async function AccountsPage() {
       category_name: categories.name,
       notes: transactions.notes,
       receipt_url: transactions.receipt_url,
+      flagged: transactions.flagged,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.category_id, categories.id))

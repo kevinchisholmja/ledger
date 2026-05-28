@@ -18,6 +18,7 @@ export interface TxRow {
   category_name: string | null;
   notes: string | null;
   receipt_url: string | null;
+  flagged: boolean;
 }
 
 interface BudgetOption { id: string; name: string; }

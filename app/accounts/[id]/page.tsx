@@ -1,14 +1,13 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { transactions, categories, buckets, bankAccounts } from "@/lib/db/schema";
-import { eq, and, sql, asc } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import LogoutButton from "@/app/components/LogoutButton";
-import RegisterClient, { type RegisterRow } from "./RegisterClient";
+import RegisterClient, { type RegisterRow } from "@/app/register/RegisterClient";
 
-function SidebarItem({
-  href, icon, label, active, badge,
-}: {
+function SidebarItem({ href, icon, label, active, badge }: {
   href: string; icon: string; label: string; active?: boolean; badge?: number;
 }) {
   return (
@@ -29,10 +28,22 @@ function SidebarItem({
   );
 }
 
-export default async function RegisterPage() {
+export default async function AccountRegisterPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const user = await requireUser();
+  const { id: accountId } = await params;
 
-  const [rows, pendingCount] = await Promise.all([
+  const [account, rows, pendingCount] = await Promise.all([
+    db
+      .select()
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.id, accountId), eq(bankAccounts.user_id, user.id)))
+      .limit(1)
+      .then((r) => r[0] ?? null),
+
     db
       .select({
         id: transactions.id,
@@ -58,7 +69,7 @@ export default async function RegisterPage() {
       .leftJoin(categories, eq(transactions.category_id, categories.id))
       .leftJoin(buckets, eq(transactions.bucket_id, buckets.id))
       .leftJoin(bankAccounts, eq(transactions.account_id, bankAccounts.id))
-      .where(eq(transactions.user_id, user.id))
+      .where(and(eq(transactions.user_id, user.id), eq(transactions.account_id, accountId)))
       .orderBy(asc(transactions.date), asc(transactions.created_at)),
 
     db
@@ -68,7 +79,8 @@ export default async function RegisterPage() {
       .then((r: { count: number }[]) => r[0]?.count ?? 0),
   ]);
 
-  // Compute running balance — debits reduce balance, credits increase it
+  if (!account) notFound();
+
   let balance = 0;
   const registerRows: RegisterRow[] = rows.map((r) => {
     const isDebit = r.direction === "debit";
@@ -98,8 +110,7 @@ export default async function RegisterPage() {
     };
   });
 
-  const totalRows = registerRows.length;
-  const confirmedRows = registerRows.filter((r) => r.cleared).length;
+  const clearedCount = registerRows.filter((r) => r.cleared).length;
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900">
@@ -120,8 +131,8 @@ export default async function RegisterPage() {
           <SidebarItem href="/goals" icon="◇" label="Goals" />
           <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
           <SidebarItem href="/transactions" icon="≡" label="Transactions" />
-          <SidebarItem href="/register" icon="▦" label="Register" active />
-          <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
+          <SidebarItem href="/register" icon="▦" label="Register" />
+          <SidebarItem href="/accounts" icon="⬡" label="All Accounts" active />
           <SidebarItem href="/budgets" icon="◎" label="Budgets" />
           <SidebarItem href="/categories" icon="◈" label="Categories" />
         </nav>
@@ -136,17 +147,25 @@ export default async function RegisterPage() {
 
         {/* Mobile header */}
         <header className="md:hidden sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
-          <Link href="/" className="text-gray-400 hover:text-gray-700 transition-colors text-lg">‹</Link>
-          <h1 className="text-base font-semibold text-gray-900">Register</h1>
+          <Link href="/accounts" className="text-gray-400 hover:text-gray-700 transition-colors text-lg">‹</Link>
+          <h1 className="text-base font-semibold text-gray-900">{account.name}</h1>
         </header>
 
         {/* Desktop header */}
         <div className="hidden md:flex sticky top-0 z-10 bg-white border-b border-gray-200 px-8 py-3 items-center justify-between">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">Transaction Register</h1>
+            <div className="flex items-center gap-2">
+              <Link href="/accounts" className="text-gray-400 hover:text-gray-700 text-sm transition-colors">
+                All Accounts
+              </Link>
+              <span className="text-gray-300 text-sm">/</span>
+              <h1 className="text-base font-semibold text-gray-900">{account.name}</h1>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs font-medium capitalize ml-1">
+                {account.type}
+              </span>
+            </div>
             <p className="text-xs text-gray-400 mt-0.5">
-              {totalRows} transactions · {confirmedRows} cleared ·{" "}
-              {totalRows - confirmedRows} uncleared
+              {registerRows.length} transactions · {clearedCount} cleared
             </p>
           </div>
         </div>

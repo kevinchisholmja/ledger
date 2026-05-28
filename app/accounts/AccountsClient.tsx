@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { BankAccount } from "@/lib/db/schema";
 import { formatCurrency } from "@/lib/format";
@@ -183,7 +184,7 @@ function AccountRow({
           )}
         </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <p
           className={`font-semibold text-sm tabular-nums ${
             account.type === "credit" ? "text-red-600" : "text-gray-900"
@@ -192,6 +193,13 @@ function AccountRow({
           {account.type === "credit" ? "−" : ""}
           {formatCurrency(Number(account.balance), account.currency)}
         </p>
+        <Link
+          href={`/accounts/${account.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-xs text-blue-500 hover:text-blue-700 transition-colors whitespace-nowrap"
+        >
+          Register →
+        </Link>
         <button
           onClick={(e) => { e.stopPropagation(); remove(); }}
           className="text-gray-300 hover:text-red-500 transition-colors text-lg leading-none"
