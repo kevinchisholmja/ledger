@@ -20,23 +20,23 @@ source of truth for the vision, current state, v2 data model, and migration plan
 | Auth + Storage | Supabase JS (`@supabase/ssr`) | Not for DB queries — Drizzle only |
 | AI | `claude-sonnet-4-6` | Do not change model without testing on receipts |
 
-## Current phase: Phase A4 complete
+## Current phase: Phase A6 complete
 All application code reads/writes from the v2 `transactions` table.
-`expenses` and `bank_entries` are truncated (no data). Next: Phase A5 (payees + budget assignments UI).
+`expenses` and `bank_entries` have been dropped from the database. Next: Dashboard refresh.
 
 **Right now:**
-- DB table `transactions` is live — all inserts and reads go here
-- DB table `expenses` exists but is empty — do NOT write to it
+- DB table `transactions` is the only transaction table — all inserts and reads go here
 - Do NOT rename `buckets` — stays as `buckets` permanently
-- `bank_entries` will be dropped in Phase A6
 
 ## DB table names (current)
 | UI name | DB table | Notes |
 |---------|----------|-------|
-| Transaction | `transactions` | v2 active — use this |
+| Transaction | `transactions` | Only transaction table |
 | Budget | `buckets` | Stays as `buckets` forever |
-| — | `expenses` | Empty — do not write to |
-| — | `bank_entries` | Empty — dropped in Phase A6 |
+| Category | `categories` | |
+| Account | `bank_accounts` | |
+| Payee | `payees` | Auto-created on entry |
+| — | `budget_assignments` | Monthly envelope allocations |
 
 ## Three rules that are never optional
 1. `await requireUser()` — first line of every route handler and server component

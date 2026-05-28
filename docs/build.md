@@ -280,3 +280,58 @@ creation for all 8 transaction types without requiring a receipt upload.
   "Upload receipt" → existing OCR flow
 
 → `activity/2026/2026-05-27c.md`
+
+---
+
+## Phase A5b — Flag/Reconcile, TBB Plan, Per-Account Register, OCR Type Detection
+**Date:** 2026-05-27 · **Status:** Complete
+
+Second batch of A5 features, completing the post-migration feature set.
+
+**Plan page (TBB model):**
+- `budget_assignments` table is now the source of truth for monthly envelope
+  allocations; two new API routes handle upsert and copy-last-month
+- TBB (To Be Budgeted) = income received this month − total assigned; banner
+  turns red when over-assigned
+- Inline assignment editing, "Move money" modal, "Return to TBB" per envelope,
+  and "Copy last month" bulk action
+
+**Per-account register:**
+- `/accounts/[id]` — per-account filtered view of the RegisterClient
+- "Register →" link on each account card in AccountsClient
+
+**Flag and reconciliation:**
+- RegisterClient: amber row highlight for flagged transactions, expanded row
+  action buttons for Flag/Clear/Reconcile, Clr column indicator (R/C/○)
+- TransactionModal: flag toggle button in edit form
+- `flagged` and `reconciled` fields added to all relevant page selects
+
+**OCR type detection:**
+- `OcrResult` gains `type` field; Claude now classifies receipts as
+  purchase / income / refund / chargeback / bank_fee
+- All three upload routes (web, iOS Shortcut, Telegram) derive `type` and
+  `direction` from OCR result instead of hardcoding purchase/debit
+
+→ `activity/2026/2026-05-27d.md`
+
+---
+
+## Phase A6 — Drop v1 Tables
+**Date:** 2026-05-27 · **Status:** Complete
+
+Final cleanup of the Phase A data model migration. The `expenses` and
+`bank_entries` tables (both truncated since Phase A4) are removed from the
+database and all code references are eliminated.
+
+**Code changes:**
+- `lib/db/schema.ts` — removed `expenses`, `bankEntries` definitions;
+  removed `expenseSourceEnum`, `expenseStatusEnum`, `matchStatusEnum`;
+  removed `Expense`, `BankEntry`, `NewExpense` type exports
+- `app/budgets`, `app/categories`, `app/goals` — pending badge count queries
+  switched from `expenses` to `transactions`
+
+**Database migration:**
+Dropped `bank_entries` (CASCADE), `expenses` (CASCADE dropped `buckets_summary`
+view), and the three orphaned enum types. Applied via Supabase SQL Editor.
+
+→ `activity/2026/2026-05-27d.md`
