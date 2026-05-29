@@ -3,7 +3,6 @@
 import { useState, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import LogoutButton from "@/app/components/LogoutButton";
 import { formatCurrency } from "@/lib/format";
 import type { PlanBudget, PlanGroup } from "./page";
 
@@ -19,42 +18,21 @@ function nextMonth(ym: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function SidebarItem({ href, icon, label, active, badge }: {
-  href: string; icon: string; label: string; active?: boolean; badge?: number;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-        active ? "bg-white/15 text-white font-medium" : "text-slate-400 hover:text-white hover:bg-white/10"
-      }`}
-    >
-      <span className="w-4 text-center shrink-0 text-base leading-none">{icon}</span>
-      <span className="flex-1 truncate">{label}</span>
-      {badge != null && (
-        <span className="ml-auto min-w-[1.25rem] h-5 rounded-full bg-blue-500 text-white text-xs font-semibold flex items-center justify-center px-1.5">
-          {badge}
-        </span>
-      )}
-    </Link>
-  );
-}
-
 function AvailablePill({ value, currency = "JMD" }: { value: number; currency?: string }) {
   if (value < 0)
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 tabular-nums">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-destructive/15 text-destructive tabular-nums">
         −{formatCurrency(Math.abs(value), currency)}
       </span>
     );
   if (value === 0)
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500 tabular-nums">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground tabular-nums">
         {formatCurrency(0, currency)}
       </span>
     );
   return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 tabular-nums">
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/15 text-success tabular-nums">
       {formatCurrency(value, currency)}
     </span>
   );
@@ -84,8 +62,6 @@ export default function PlanClient({
   tbbIncome,
   tbbAssigned,
   totalActivity,
-  pendingCount,
-  userEmail,
 }: {
   groups: PlanGroup[];
   yearMonth: string;
@@ -94,8 +70,6 @@ export default function PlanClient({
   tbbIncome: number;
   tbbAssigned: number;
   totalActivity: number;
-  pendingCount: number;
-  userEmail: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -183,69 +157,26 @@ export default function PlanClient({
   }
 
   const tbbPositive = tbb >= 0;
-  const tbbBg = tbbPositive ? "bg-emerald-600" : "bg-red-600";
+  const tbbBg = tbbPositive ? "bg-success" : "bg-destructive";
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900">
+    <div className="flex min-h-screen md:pl-60">
 
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-56 flex-col fixed inset-y-0 left-0 bg-[#1B1F3B] z-20">
-        <div className="px-5 py-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
-              <span className="text-white font-bold text-sm">L</span>
-            </div>
-            <span className="font-semibold text-white tracking-tight">Ledger</span>
-          </div>
-        </div>
-        <nav className="flex-1 px-3 py-2 space-y-0.5">
-          <SidebarItem href="/" icon="⊞" label="Dashboard" />
-          <SidebarItem href="/plan" icon="◫" label="Plan" active />
-          <SidebarItem href="/goals" icon="◇" label="Goals" />
-          <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
-          <SidebarItem href="/transactions" icon="≡" label="Transactions" />
-          <SidebarItem href="/register" icon="▦" label="Register" />
-          <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
-          <SidebarItem href="/budgets" icon="◎" label="Budgets" />
-          <SidebarItem href="/categories" icon="◈" label="Categories" />
-        </nav>
-        <div className="px-3 pb-5 pt-3 border-t border-white/10 space-y-2">
-          <p className="px-3 text-xs text-slate-500 truncate">{userEmail}</p>
-          <div className="px-3"><LogoutButton /></div>
-        </div>
-      </aside>
-
-      <div className="flex-1 md:pl-56 flex min-h-screen">
+      <div className="flex-1 flex min-h-screen">
 
         {/* Center column */}
         <div className="flex-1 min-w-0 flex flex-col">
 
-          {/* Mobile top bar */}
-          <header className="md:hidden sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-                <span className="text-white font-bold text-xs">L</span>
-              </div>
-              <span className="font-semibold text-gray-900 tracking-tight">Ledger</span>
-            </div>
-            <Link href="/review" className="relative p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-              <span className="text-lg">✓</span>
-              {pendingCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
-              )}
-            </Link>
-          </header>
-
           {/* Month navigator */}
-          <div className="sticky top-0 md:top-0 z-10 bg-white border-b border-gray-200 px-4 md:px-8 py-2.5 flex items-center justify-between gap-4">
+          <div className="sticky top-0 z-10 bg-card border-b border-border px-4 md:px-8 py-2.5 flex items-center justify-between gap-4">
             <button
               onClick={() => router.push(`/plan?month=${prevMonth(yearMonth)}`)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors text-lg font-light"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-lg font-light"
             >‹</button>
-            <p className="text-sm font-semibold text-gray-900">{monthLabel}</p>
+            <p className="text-sm font-semibold text-foreground">{monthLabel}</p>
             <button
               onClick={() => router.push(`/plan?month=${nextMonth(yearMonth)}`)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors text-lg font-light"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-lg font-light"
             >›</button>
           </div>
 
@@ -277,18 +208,18 @@ export default function PlanClient({
           </div>
 
           {/* Action bar */}
-          <div className="bg-white border-b border-gray-200 px-4 md:px-8 py-2 flex items-center gap-3">
+          <div className="bg-card border-b border-border px-4 md:px-8 py-2 flex items-center gap-3">
             <button
               onClick={() => setShowMove(true)}
-              className="text-xs text-blue-600 hover:text-blue-500 font-medium transition-colors"
+              className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
             >
               Move money
             </button>
-            <span className="text-gray-300">·</span>
+            <span className="text-border">·</span>
             <button
               onClick={copyLastMonth}
               disabled={copying}
-              className="text-xs text-blue-600 hover:text-blue-500 font-medium transition-colors disabled:opacity-50"
+              className="text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
             >
               {copying ? "Copying…" : "Copy last month"}
             </button>
@@ -296,13 +227,13 @@ export default function PlanClient({
 
           {/* Column headers */}
           <div
-            className="grid items-center border-b border-gray-200 bg-gray-50 px-4 md:px-8 py-2"
+            className="grid items-center border-b border-border bg-muted px-4 md:px-8 py-2"
             style={{ gridTemplateColumns: "1fr 130px 120px 130px 32px" }}
           >
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Category</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right">Assigned</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right">Activity</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-right pr-2">Available</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Assigned</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Activity</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right pr-2">Available</span>
             <span />
           </div>
 
@@ -310,14 +241,14 @@ export default function PlanClient({
           <main className="flex-1 px-0 py-0 overflow-x-auto">
             {groups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-                <p className="text-gray-500 font-medium">No budgets yet</p>
-                <p className="text-gray-400 text-sm mt-1.5">Create a budget to start planning your month</p>
-                <Link href="/budgets" className="inline-block mt-5 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-sm font-medium text-white transition-colors">
+                <p className="text-muted-foreground font-medium">No budgets yet</p>
+                <p className="text-muted-foreground/70 text-sm mt-1.5">Create a budget to start planning your month</p>
+                <Link href="/budgets" className="inline-block mt-5 rounded-xl bg-primary hover:bg-primary/90 px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors">
                   Create budget
                 </Link>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100 pb-20">
+              <div className="divide-y divide-border/50 pb-20">
                 {groups.map((group) => {
                   const isCollapsed = collapsed[group.name];
                   return (
@@ -325,19 +256,19 @@ export default function PlanClient({
                       {/* Group header */}
                       <button
                         onClick={() => toggleGroup(group.name)}
-                        className="w-full grid items-center px-4 md:px-8 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors border-b border-gray-200"
+                        className="w-full grid items-center px-4 md:px-8 py-2.5 bg-muted hover:bg-muted/80 transition-colors border-b border-border"
                         style={{ gridTemplateColumns: "1fr 130px 120px 130px 32px" }}
                       >
                         <div className="flex items-center gap-2 min-w-0 text-left">
-                          <span className="text-gray-400 text-xs leading-none shrink-0" style={{ display: "inline-block", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>
+                          <span className="text-muted-foreground text-xs leading-none shrink-0" style={{ display: "inline-block", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>
                             ▾
                           </span>
-                          <span className="text-xs font-semibold uppercase tracking-wider text-gray-600 truncate">{group.name}</span>
+                          <span className="text-xs font-semibold uppercase tracking-wider text-foreground/80 truncate">{group.name}</span>
                         </div>
-                        <span className="text-xs font-semibold text-gray-700 tabular-nums text-right">
+                        <span className="text-xs font-semibold text-foreground tabular-nums text-right">
                           {formatCurrency(group.totalAssigned, "JMD")}
                         </span>
-                        <span className="text-xs font-semibold text-gray-700 tabular-nums text-right">
+                        <span className="text-xs font-semibold text-foreground tabular-nums text-right">
                           {formatCurrency(group.totalActivity, "JMD")}
                         </span>
                         <div className="flex justify-end pr-2">
@@ -356,7 +287,7 @@ export default function PlanClient({
                         return (
                           <div
                             key={b.id}
-                            className="grid items-center px-4 md:px-8 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                            className="grid items-center px-4 md:px-8 py-3 hover:bg-muted/50 transition-colors border-b border-border/50"
                             style={{ gridTemplateColumns: "1fr 130px 120px 130px 32px" }}
                           >
                             {/* Name + progress */}
@@ -364,22 +295,22 @@ export default function PlanClient({
                               {b.icon ? (
                                 <span className="text-lg shrink-0 w-7 text-center">{b.icon}</span>
                               ) : (
-                                <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0">
-                                  <span className="text-gray-500 text-xs font-bold">{b.name[0]}</span>
+                                <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                  <span className="text-muted-foreground text-xs font-bold">{b.name[0]}</span>
                                 </div>
                               )}
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-gray-900 truncate">{b.name}</p>
-                                <div className="mt-1 h-1 rounded-full bg-gray-100 max-w-[120px]">
+                                <p className="text-sm font-medium text-foreground truncate">{b.name}</p>
+                                <div className="mt-1 h-1 rounded-full bg-muted max-w-[120px]">
                                   <div
-                                    className={`h-full rounded-full ${pct >= 100 ? "bg-red-400" : pct >= 80 ? "bg-amber-400" : "bg-blue-400"}`}
+                                    className={`h-full rounded-full ${pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-warning" : "bg-primary"}`}
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
                               </div>
                             </div>
 
-                            {/* Assigned (inline editable → budget_assignments) */}
+                            {/* Assigned (inline editable) */}
                             <div className="flex justify-end">
                               {isEditingThis ? (
                                 <input
@@ -394,7 +325,7 @@ export default function PlanClient({
                                     if (e.key === "Enter") commitEdit(b, editing!.value);
                                     if (e.key === "Escape") setEditing(null);
                                   }}
-                                  className="w-28 rounded-lg border border-blue-400 bg-blue-50 px-2 py-1 text-sm text-right tabular-nums text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-28 rounded-lg border border-primary bg-primary/10 px-2 py-1 text-sm text-right tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                                   autoFocus
                                 />
                               ) : (
@@ -403,8 +334,8 @@ export default function PlanClient({
                                   disabled={isSaving}
                                   title={b.assigned === 0 && b.suggested > 0 ? `Suggested: ${formatCurrency(b.suggested, b.currency)}` : undefined}
                                   className={`text-sm tabular-nums text-right px-2 py-1 rounded-lg transition-colors ${
-                                    isSaving ? "text-gray-400 cursor-not-allowed" : "text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-text"
-                                  } ${b.assigned === 0 ? "text-gray-400" : ""}`}
+                                    isSaving ? "text-muted-foreground cursor-not-allowed" : "text-foreground hover:bg-primary/10 hover:text-primary cursor-text"
+                                  } ${b.assigned === 0 ? "text-muted-foreground" : ""}`}
                                 >
                                   {isSaving ? "…" : formatCurrency(b.assigned, b.currency)}
                                 </button>
@@ -412,7 +343,7 @@ export default function PlanClient({
                             </div>
 
                             {/* Activity */}
-                            <span className="text-sm tabular-nums text-gray-500 text-right">
+                            <span className="text-sm tabular-nums text-muted-foreground text-right">
                               {b.activity > 0 ? formatCurrency(b.activity, b.currency) : "—"}
                             </span>
 
@@ -428,7 +359,7 @@ export default function PlanClient({
                                   onClick={() => returnToTBB(b)}
                                   disabled={isSaving}
                                   title="Return available to TBB"
-                                  className="text-gray-300 hover:text-blue-500 disabled:opacity-30 text-xs transition-colors leading-none"
+                                  className="text-muted-foreground hover:text-primary disabled:opacity-30 text-xs transition-colors leading-none"
                                 >
                                   ↑
                                 </button>
@@ -439,10 +370,10 @@ export default function PlanClient({
                       })}
 
                       {!isCollapsed && (
-                        <div className="px-4 md:px-8 py-2 border-b border-gray-100">
+                        <div className="px-4 md:px-8 py-2 border-b border-border/50">
                           <Link
                             href={group.category_id ? `/budgets?category=${group.category_id}` : "/budgets"}
-                            className="text-xs text-blue-600 hover:text-blue-500 transition-colors"
+                            className="text-xs text-primary hover:text-primary/80 transition-colors"
                           >
                             + Add budget to {group.name}
                           </Link>
@@ -454,14 +385,14 @@ export default function PlanClient({
 
                 {/* Footer totals */}
                 <div
-                  className="grid items-center px-4 md:px-8 py-3 bg-gray-50 border-t-2 border-gray-200"
+                  className="grid items-center px-4 md:px-8 py-3 bg-muted border-t-2 border-border"
                   style={{ gridTemplateColumns: "1fr 130px 120px 130px 32px" }}
                 >
-                  <span className="text-sm font-semibold text-gray-700">Total</span>
-                  <span className="text-sm font-semibold text-gray-700 tabular-nums text-right">
+                  <span className="text-sm font-semibold text-foreground">Total</span>
+                  <span className="text-sm font-semibold text-foreground tabular-nums text-right">
                     {formatCurrency(tbbAssigned, "JMD")}
                   </span>
-                  <span className="text-sm font-semibold text-gray-700 tabular-nums text-right">
+                  <span className="text-sm font-semibold text-foreground tabular-nums text-right">
                     {formatCurrency(totalActivity, "JMD")}
                   </span>
                   <div className="flex justify-end pr-2">
@@ -471,7 +402,7 @@ export default function PlanClient({
                 </div>
 
                 <div className="px-4 md:px-8 py-4">
-                  <Link href="/categories" className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-500 transition-colors font-medium">
+                  <Link href="/categories" className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors font-medium">
                     <span className="text-lg leading-none">+</span>
                     Add Category
                   </Link>
@@ -482,61 +413,61 @@ export default function PlanClient({
         </div>
 
         {/* Right summary panel */}
-        <aside className="hidden md:flex w-72 flex-col border-l border-gray-200 bg-white sticky top-0 h-screen overflow-y-auto shrink-0">
-          <div className="px-5 py-5 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900">Month Summary</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{monthLabel}</p>
+        <aside className="hidden md:flex w-72 flex-col border-l border-border bg-card sticky top-0 h-screen overflow-y-auto shrink-0">
+          <div className="px-5 py-5 border-b border-border">
+            <h2 className="text-sm font-semibold text-foreground">Month Summary</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{monthLabel}</p>
           </div>
 
           <div className="flex-1 px-5 py-4 space-y-4">
-            <div className="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3 space-y-2.5">
+            <div className="rounded-xl bg-muted border border-border px-4 py-3 space-y-2.5">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Income received</span>
-                <span className="font-semibold tabular-nums text-emerald-700">{formatCurrency(tbbIncome, "JMD")}</span>
+                <span className="text-muted-foreground">Income received</span>
+                <span className="font-semibold tabular-nums text-success">{formatCurrency(tbbIncome, "JMD")}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Total assigned</span>
-                <span className="font-semibold tabular-nums text-gray-900">{formatCurrency(tbbAssigned, "JMD")}</span>
+                <span className="text-muted-foreground">Total assigned</span>
+                <span className="font-semibold tabular-nums text-foreground">{formatCurrency(tbbAssigned, "JMD")}</span>
               </div>
-              <div className="h-px bg-gray-200" />
+              <div className="h-px bg-border" />
               <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-gray-700">To Be Budgeted</span>
+                <span className="font-medium text-foreground">To Be Budgeted</span>
                 <AvailablePill value={tbb} />
               </div>
             </div>
 
-            <div className="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3 space-y-2.5">
+            <div className="rounded-xl bg-muted border border-border px-4 py-3 space-y-2.5">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Total assigned</span>
-                <span className="font-semibold tabular-nums text-gray-900">{formatCurrency(tbbAssigned, "JMD")}</span>
+                <span className="text-muted-foreground">Total assigned</span>
+                <span className="font-semibold tabular-nums text-foreground">{formatCurrency(tbbAssigned, "JMD")}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Total activity</span>
-                <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(totalActivity, "JMD")}</span>
+                <span className="text-muted-foreground">Total activity</span>
+                <span className="font-semibold tabular-nums text-foreground">{formatCurrency(totalActivity, "JMD")}</span>
               </div>
-              <div className="h-px bg-gray-200" />
+              <div className="h-px bg-border" />
               <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-gray-700">Envelope balance</span>
+                <span className="font-medium text-foreground">Envelope balance</span>
                 <AvailablePill value={tbbAssigned - totalActivity} />
               </div>
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">By Category</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">By Category</h3>
               <div className="space-y-2">
                 {groups.map((g) => {
                   const gpct = g.totalAssigned > 0 ? Math.min((g.totalActivity / g.totalAssigned) * 100, 100) : 0;
                   return (
                     <div key={g.name}>
-                      <div className="flex justify-between text-xs text-gray-600 mb-0.5">
+                      <div className="flex justify-between text-xs text-foreground/80 mb-0.5">
                         <span className="truncate max-w-[130px]">{g.name}</span>
-                        <span className="tabular-nums text-gray-400">
+                        <span className="tabular-nums text-muted-foreground">
                           {formatCurrency(g.totalActivity, "JMD")} / {formatCurrency(g.totalAssigned, "JMD")}
                         </span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${gpct >= 100 ? "bg-red-400" : gpct >= 80 ? "bg-amber-400" : "bg-blue-400"}`}
+                          className={`h-full rounded-full ${gpct >= 100 ? "bg-destructive" : gpct >= 80 ? "bg-warning" : "bg-primary"}`}
                           style={{ width: `${gpct}%` }}
                         />
                       </div>
@@ -547,11 +478,11 @@ export default function PlanClient({
             </div>
           </div>
 
-          <div className="px-5 py-4 border-t border-gray-100 space-y-2">
-            <Link href="/budgets" className="flex items-center justify-between text-sm text-blue-600 hover:text-blue-500 transition-colors">
+          <div className="px-5 py-4 border-t border-border space-y-2">
+            <Link href="/budgets" className="flex items-center justify-between text-sm text-primary hover:text-primary/80 transition-colors">
               <span>Manage Budgets</span><span>›</span>
             </Link>
-            <Link href="/transactions" className="flex items-center justify-between text-sm text-blue-600 hover:text-blue-500 transition-colors">
+            <Link href="/transactions" className="flex items-center justify-between text-sm text-primary hover:text-primary/80 transition-colors">
               <span>View Transactions</span><span>›</span>
             </Link>
           </div>
@@ -566,17 +497,17 @@ export default function PlanClient({
           onClick={() => setShowMove(false)}
         >
           <div
-            className="relative w-full md:max-w-sm bg-white rounded-t-2xl md:rounded-2xl shadow-2xl p-6"
+            className="relative w-full md:max-w-sm bg-card rounded-t-2xl md:rounded-2xl shadow-2xl p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-semibold text-gray-900 mb-4">Move Money</h3>
+            <h3 className="text-base font-semibold text-foreground mb-4">Move Money</h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">From envelope</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">From envelope</label>
                 <select
                   value={move.fromId}
                   onChange={(e) => setMove((m) => ({ ...m, fromId: e.target.value, toId: m.toId === e.target.value ? "" : m.toId }))}
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">— select —</option>
                   {allBudgets.filter((b) => b.available > 0).map((b) => (
@@ -587,11 +518,11 @@ export default function PlanClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">To envelope</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">To envelope</label>
                 <select
                   value={move.toId}
                   onChange={(e) => setMove((m) => ({ ...m, toId: e.target.value }))}
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">— select —</option>
                   {allBudgets.filter((b) => b.id !== move.fromId).map((b) => (
@@ -600,7 +531,7 @@ export default function PlanClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">Amount</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Amount</label>
                 <input
                   type="number"
                   min="0"
@@ -608,18 +539,18 @@ export default function PlanClient({
                   value={move.amount}
                   onChange={(e) => setMove((m) => ({ ...m, amount: e.target.value }))}
                   placeholder="0.00"
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={() => setShowMove(false)} className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+              <button onClick={() => setShowMove(false)} className="rounded-xl border border-border bg-muted px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/80 transition-colors">
                 Cancel
               </button>
               <button
                 onClick={submitMove}
                 disabled={moveSaving || !move.fromId || !move.toId || !move.amount}
-                className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-2.5 text-xs font-semibold text-white transition-colors"
+                className="flex-1 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-50 py-2.5 text-xs font-semibold text-primary-foreground transition-colors"
               >
                 {moveSaving ? "Moving…" : "Move Money"}
               </button>
