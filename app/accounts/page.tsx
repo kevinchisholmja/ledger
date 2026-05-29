@@ -1,41 +1,16 @@
-import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { transactions, buckets, bankAccounts, categories } from "@/lib/db/schema";
 import { eq, and, ne, isNotNull, desc, sql } from "drizzle-orm";
-import LogoutButton from "@/app/components/LogoutButton";
 import { formatCurrency } from "@/lib/format";
 import AccountsClient from "./AccountsClient";
 import TransactionListClient from "@/app/components/TransactionListClient";
-
-function SidebarItem({
-  href, icon, label, active, badge,
-}: {
-  href: string; icon: string; label: string; active?: boolean; badge?: number;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-        active ? "bg-white/15 text-white font-medium" : "text-slate-400 hover:text-white hover:bg-white/10"
-      }`}
-    >
-      <span className="w-4 text-center shrink-0 text-base leading-none">{icon}</span>
-      <span className="flex-1 truncate">{label}</span>
-      {badge != null && (
-        <span className="ml-auto min-w-[1.25rem] h-5 rounded-full bg-blue-500 text-white text-xs font-semibold flex items-center justify-center px-1.5">
-          {badge}
-        </span>
-      )}
-    </Link>
-  );
-}
-
+import PageHeader from "@/app/components/PageHeader";
 
 export default async function AccountsPage() {
   const user = await requireUser();
 
-  const [allTransactions, allBankAccounts, pendingCount, totalSpent, userBuckets, userCategories] = await Promise.all([
+  const [allTransactions, allBankAccounts, , totalSpent, userBuckets, userCategories] = await Promise.all([
     db.select({
       id: transactions.id,
       payee_name: transactions.payee_name,
@@ -97,82 +72,38 @@ export default async function AccountsPage() {
   ).length;
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900">
+    <div className="flex min-h-screen md:pl-60">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PageHeader title="All Accounts" />
 
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-56 flex-col fixed inset-y-0 left-0 bg-[#1B1F3B] z-20">
-        <div className="px-5 py-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
-              <span className="text-white font-bold text-sm">L</span>
-            </div>
-            <span className="font-semibold text-white tracking-tight">Ledger</span>
-          </div>
-        </div>
-        <nav className="flex-1 px-3 py-2 space-y-0.5">
-          <SidebarItem href="/" icon="⊞" label="Dashboard" />
-          <SidebarItem href="/plan" icon="◫" label="Plan" />
-          <SidebarItem href="/goals" icon="◇" label="Goals" />
-          <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
-          <SidebarItem href="/transactions" icon="≡" label="Transactions" />
-          <SidebarItem href="/register" icon="▦" label="Register" />
-          <SidebarItem href="/accounts" icon="⬡" label="All Accounts" active />
-          <SidebarItem href="/budgets" icon="◎" label="Budgets" />
-          <SidebarItem href="/categories" icon="◈" label="Categories" />
-        </nav>
-        <div className="px-3 pb-5 pt-3 border-t border-white/10 space-y-2">
-          <p className="px-3 text-xs text-slate-500 truncate">{user.email}</p>
-          <div className="px-3"><LogoutButton /></div>
-        </div>
-      </aside>
+        <main className="flex-1 space-y-8 px-4 pb-24 pt-6 md:px-8 md:pb-10">
+          <section>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Bank Accounts
+            </h2>
+            <AccountsClient accounts={allBankAccounts} />
+          </section>
 
-      {/* Main */}
-      <div className="flex-1 md:pl-56 flex min-h-screen">
-        <div className="flex-1 min-w-0 flex flex-col">
-
-          {/* Mobile header */}
-          <header className="md:hidden sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
-            <Link href="/" className="text-gray-400 hover:text-gray-700 text-lg">‹</Link>
-            <h1 className="text-base font-semibold text-gray-900">All Accounts</h1>
-          </header>
-
-          {/* Desktop header */}
-          <div className="hidden md:block sticky top-0 z-10 bg-white border-b border-gray-200 px-8 py-3">
-            <h1 className="text-base font-semibold text-gray-900">All Accounts</h1>
-          </div>
-
-          <main className="flex-1 px-4 md:px-8 py-6 space-y-8 pb-24 md:pb-10">
-
-            {/* ── Bank Accounts section ── */}
-            <section>
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-                Bank Accounts
+          <section>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Transactions
               </h2>
-              <AccountsClient accounts={allBankAccounts} />
-            </section>
-
-            {/* ── Transactions section ── */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Transactions
-                </h2>
-                <div className="flex items-center gap-4 text-xs text-gray-400">
-                  <span><span className="font-semibold text-gray-900">{allTransactions.length}</span> total</span>
-                  <span><span className="font-semibold text-emerald-600">{confirmedCount}</span> confirmed</span>
-                  <span><span className="font-semibold text-blue-600">{pendingReview}</span> needs review</span>
-                  <span className="font-semibold text-gray-900 tabular-nums">{formatCurrency(totalSpent, "JMD")}</span>
-                </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span><span className="font-semibold text-foreground">{allTransactions.length}</span> total</span>
+                <span><span className="font-semibold text-success">{confirmedCount}</span> confirmed</span>
+                <span><span className="font-semibold text-primary">{pendingReview}</span> needs review</span>
+                <span className="font-semibold text-foreground tabular-nums">{formatCurrency(totalSpent, "JMD")}</span>
               </div>
+            </div>
 
-              <TransactionListClient
-                transactions={allTransactions}
-                budgets={userBuckets}
-                categories={userCategories}
-              />
-            </section>
-          </main>
-        </div>
+            <TransactionListClient
+              transactions={allTransactions}
+              budgets={userBuckets}
+              categories={userCategories}
+            />
+          </section>
+        </main>
       </div>
     </div>
   );
