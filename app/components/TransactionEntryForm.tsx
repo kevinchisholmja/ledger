@@ -2,6 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 type TxType =
   | "purchase"
@@ -201,232 +214,245 @@ export default function TransactionEntryForm({ onClose }: { onClose: () => void 
     }
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full md:max-w-lg bg-white rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] md:max-h-[85vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-base font-semibold text-gray-900">Add Transaction</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-xl leading-none"
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
+  const formFields = (
+    <>
+      {/* Type */}
+      <div>
+        <label className={labelCls}>Type</label>
+        <select
+          value={type}
+          onChange={(e) => handleTypeChange(e.target.value as TxType)}
+          className={selectCls}
+        >
+          {(Object.entries(TYPE_LABELS) as [TxType, string][]).map(([val, label]) => (
+            <option key={val} value={val}>{label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Account(s) */}
+      <div className={isTransfer ? "grid grid-cols-2 gap-3" : undefined}>
+        <div>
+          <label className={labelCls}>{isTransfer ? "From Account" : "Account"}</label>
+          <select
+            value={accountId}
+            onChange={(e) => handleAccountChange(e.target.value)}
+            className={selectCls}
           >
-            ×
-          </button>
+            <option value="">— select —</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
         </div>
-
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-
-          {/* Type */}
+        {isTransfer && (
           <div>
-            <label className={labelCls}>Type</label>
+            <label className={labelCls}>To Account</label>
             <select
-              value={type}
-              onChange={(e) => handleTypeChange(e.target.value as TxType)}
+              value={toAccountId}
+              onChange={(e) => setToAccountId(e.target.value)}
               className={selectCls}
             >
-              {(Object.entries(TYPE_LABELS) as [TxType, string][]).map(([val, label]) => (
-                <option key={val} value={val}>{label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Account(s) */}
-          <div className={isTransfer ? "grid grid-cols-2 gap-3" : undefined}>
-            <div>
-              <label className={labelCls}>{isTransfer ? "From Account" : "Account"}</label>
-              <select
-                value={accountId}
-                onChange={(e) => handleAccountChange(e.target.value)}
-                className={selectCls}
-              >
-                <option value="">— select —</option>
-                {accounts.map((a) => (
+              <option value="">— select —</option>
+              {accounts
+                .filter((a) => a.id !== accountId)
+                .map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
-              </select>
-            </div>
-            {isTransfer && (
-              <div>
-                <label className={labelCls}>To Account</label>
-                <select
-                  value={toAccountId}
-                  onChange={(e) => setToAccountId(e.target.value)}
-                  className={selectCls}
-                >
-                  <option value="">— select —</option>
-                  {accounts
-                    .filter((a) => a.id !== accountId)
-                    .map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                </select>
-              </div>
-            )}
+            </select>
           </div>
+        )}
+      </div>
 
-          {/* Amount + Currency */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Amount</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Currency</label>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className={selectCls}
-              >
-                {["JMD", "USD", "GBP", "EUR", "CAD"].map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+      {/* Amount + Currency */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Amount</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Currency</label>
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            className={selectCls}
+          >
+            {["JMD", "USD", "GBP", "EUR", "CAD"].map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-          {/* Date(s) */}
-          <div className={SHOW_INVOICE_DATE[type] ? "grid grid-cols-2 gap-3" : undefined}>
-            <div>
-              <label className={labelCls}>Date</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className={inputCls}
-              />
-            </div>
-            {SHOW_INVOICE_DATE[type] && (
-              <div>
-                <label className={labelCls}>Invoice Date{optionalTag}</label>
-                <input
-                  type="date"
-                  value={invoiceDate}
-                  onChange={(e) => setInvoiceDate(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Payee */}
-          {SHOW_PAYEE[type] && (
-            <div>
-              <label className={labelCls}>Payee</label>
-              <input
-                list="payee-suggestions"
-                value={payeeName}
-                onChange={(e) => setPayeeName(e.target.value)}
-                placeholder="Business or person name"
-                className={inputCls}
-                autoComplete="off"
-              />
-              <datalist id="payee-suggestions">
-                {payees.map((p) => (
-                  <option key={p.id} value={p.name} />
-                ))}
-              </datalist>
-            </div>
-          )}
-
-          {/* Category */}
-          {showCategory && (
-            <div>
-              <label className={labelCls}>Category</label>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className={selectCls}
-              >
-                <option value="">— no category —</option>
-                {filteredCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icon ? `${c.icon} ` : ""}{c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Budget */}
-          {SHOW_BUDGET[type] && (
-            <div>
-              <label className={labelCls}>Budget</label>
-              <select
-                value={budgetId}
-                onChange={(e) => setBudgetId(e.target.value)}
-                className={selectCls}
-              >
-                <option value="">— no budget —</option>
-                {budgets.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Ref # */}
-          {SHOW_REF[type] && (
-            <div>
-              <label className={labelCls}>Ref #{optionalTag}</label>
-              <input
-                value={referenceNum}
-                onChange={(e) => setReferenceNum(e.target.value)}
-                placeholder="Check #, invoice #, wire ref…"
-                className={inputCls}
-              />
-            </div>
-          )}
-
-          {/* Memo */}
+      {/* Date(s) */}
+      <div className={SHOW_INVOICE_DATE[type] ? "grid grid-cols-2 gap-3" : undefined}>
+        <div>
+          <label className={labelCls}>Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className={inputCls}
+          />
+        </div>
+        {SHOW_INVOICE_DATE[type] && (
           <div>
-            <label className={labelCls}>Memo{optionalTag}</label>
+            <label className={labelCls}>Invoice Date{optionalTag}</label>
             <input
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="Brief description…"
+              type="date"
+              value={invoiceDate}
+              onChange={(e) => setInvoiceDate(e.target.value)}
               className={inputCls}
             />
           </div>
-
-          {error && (
-            <p className="text-xs text-red-600 bg-red-50 rounded-xl px-3 py-2">{error}</p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 pb-5 pt-3 border-t border-gray-100 shrink-0 flex gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={saving}
-            className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-2.5 text-xs font-semibold text-white transition-colors"
-          >
-            {saving ? "Saving…" : isTransfer ? "Add Transfer" : "Add Transaction"}
-          </button>
-        </div>
+        )}
       </div>
-    </div>
+
+      {/* Payee */}
+      {SHOW_PAYEE[type] && (
+        <div>
+          <label className={labelCls}>Payee</label>
+          <input
+            list="payee-suggestions"
+            value={payeeName}
+            onChange={(e) => setPayeeName(e.target.value)}
+            placeholder="Business or person name"
+            className={inputCls}
+            autoComplete="off"
+          />
+          <datalist id="payee-suggestions">
+            {payees.map((p) => (
+              <option key={p.id} value={p.name} />
+            ))}
+          </datalist>
+        </div>
+      )}
+
+      {/* Category */}
+      {showCategory && (
+        <div>
+          <label className={labelCls}>Category</label>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className={selectCls}
+          >
+            <option value="">— no category —</option>
+            {filteredCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icon ? `${c.icon} ` : ""}{c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Budget */}
+      {SHOW_BUDGET[type] && (
+        <div>
+          <label className={labelCls}>Budget</label>
+          <select
+            value={budgetId}
+            onChange={(e) => setBudgetId(e.target.value)}
+            className={selectCls}
+          >
+            <option value="">— no budget —</option>
+            {budgets.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Ref # */}
+      {SHOW_REF[type] && (
+        <div>
+          <label className={labelCls}>Ref #{optionalTag}</label>
+          <input
+            value={referenceNum}
+            onChange={(e) => setReferenceNum(e.target.value)}
+            placeholder="Check #, invoice #, wire ref…"
+            className={inputCls}
+          />
+        </div>
+      )}
+
+      {/* Memo */}
+      <div>
+        <label className={labelCls}>Memo{optionalTag}</label>
+        <input
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          placeholder="Brief description…"
+          className={inputCls}
+        />
+      </div>
+
+      {error && (
+        <p className="text-xs text-red-600 bg-red-50 rounded-xl px-3 py-2">{error}</p>
+      )}
+    </>
+  );
+
+  const formActions = (
+    <>
+      <button
+        onClick={onClose}
+        className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={submit}
+        disabled={saving}
+        className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-2.5 text-xs font-semibold text-white transition-colors"
+      >
+        {saving ? "Saving…" : isTransfer ? "Add Transfer" : "Add Transaction"}
+      </button>
+    </>
+  );
+
+  if (isDesktop) {
+    return (
+      <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <DialogContent className="max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Add Transaction</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto max-h-[60vh] pr-1 space-y-4 py-1">
+            {formFields}
+          </div>
+          <div className="flex gap-2 justify-end pt-3">
+            {formActions}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Drawer open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DrawerContent className="max-h-[85vh]">
+        <DrawerHeader className="text-left px-5 pb-2">
+          <DrawerTitle>Add Transaction</DrawerTitle>
+        </DrawerHeader>
+        <div className="overflow-y-auto px-5 py-4 space-y-4 pb-12">
+          {formFields}
+          <div className="flex gap-2 pt-2">
+            {formActions}
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }

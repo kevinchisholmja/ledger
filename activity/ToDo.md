@@ -28,8 +28,7 @@ For the context behind each phase, see `activity/phases/`.
 - [ ] Full UI design pass on `/review` and `/transactions` — deferred from P5
 
 ### Data
-- [ ] Seed categories — categories table is empty. User must create categories manually
-      via `/budgets` before category_id matching on review works.
+- [x] Seed categories — completed (preset seeding has been set up to auto-seed 30 categories + 25 budgets on first visit).
 - [ ] "Left Over from Last Month" row in right summary panel — currently shows placeholder.
       Requires querying prior period's remaining balance.
 

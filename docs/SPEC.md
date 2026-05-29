@@ -556,24 +556,24 @@ stay live until Phase A5. Each phase is a separate PR.
 
 ## 11. Feature Roadmap
 
-### Near-term (Phase A1–A3, current sprint)
-- [ ] Create new DB tables (`transactions`, `payees`, `budget_assignments`)
-- [ ] Add `type` column to categories + income preset categories
-- [ ] Add `on_budget boolean` to `bank_accounts`
-- [ ] Build `/register` — Quicken-style account register table (Phase A2, debugging tool) ✅
-- [ ] Migrate existing data from `expenses` → `transactions`
+### Near-term (Phase A1–A3, current sprint) [COMPLETED]
+- [x] Create new DB tables (`transactions`, `payees`, `budget_assignments`)
+- [x] Add `type` column to categories + income preset categories
+- [x] Add `on_budget boolean` to `bank_accounts`
+- [x] Build `/register` — Quicken-style account register table (Phase A2, debugging tool) ✅
+- [x] Migrate existing data from `expenses` → `transactions`
 
-### Mid-term (Phase A4–A5)
-- [ ] Rewrite all API routes and queries to use `transactions`
-- [ ] TBB panel on Plan page (monthly-only revamp)
-- [ ] Move money between envelopes / return to TBB
-- [ ] Copy last month's assignments shortcut
-- [ ] "Flag for accountant" toggle on transaction rows
-- [ ] Off-budget transfer enforcement (require category when destination is off-budget)
-- [ ] Income transaction entry form
-- [ ] Transfer entry (single form → two linked rows)
-- [ ] Per-account register at `/accounts/[id]`
-- [ ] Payee table + autocomplete + learning
+### Mid-term (Phase A4–A5) [COMPLETED]
+- [x] Rewrite all API routes and queries to use `transactions`
+- [x] TBB panel on Plan page (monthly-only revamp)
+- [x] Move money between envelopes / return to TBB
+- [x] Copy last month's assignments shortcut
+- [x] "Flag for accountant" toggle on transaction rows
+- [x] Off-budget transfer enforcement (require category when destination is off-budget)
+- [x] Income transaction entry form
+- [x] Transfer entry (single form → two linked rows)
+- [x] Per-account register at `/accounts/[id]`
+- [x] Payee table + autocomplete + learning
 
 ### Long-term (Phase A6+)
 - [ ] Reconciliation workflow (cleared → reconciled)
