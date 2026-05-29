@@ -3,6 +3,8 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import UploadButton from "./components/UploadButton";
 import MobileNav from "./components/MobileNav";
+import Sidebar from "./components/Sidebar";
+import ThemeProvider from "./components/ThemeProvider";
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -10,8 +12,8 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Ledger",
-  description: "Personal finance tracker",
+  title: "Ledger — Personal Finance Tracker",
+  description: "Track budgets, transactions and goals with Ledger.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -26,7 +28,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#09090b",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fbfdfd" },
+    { media: "(prefers-color-scheme: dark)", color: "#13191c" },
+  ],
 };
 
 export default function RootLayout({
@@ -35,11 +40,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geist.variable} h-full`}>
-      <body className="min-h-full bg-zinc-950 font-sans antialiased">
-        {children}
-        <MobileNav />
-        <UploadButton />
+    <html lang="en" className={`${geist.variable} h-full`} suppressHydrationWarning>
+      <body className="min-h-full bg-background font-sans text-foreground antialiased">
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <Sidebar />
+          {children}
+          <MobileNav />
+          <UploadButton />
+        </ThemeProvider>
       </body>
     </html>
   );

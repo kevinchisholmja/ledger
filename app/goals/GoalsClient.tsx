@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import LogoutButton from "@/app/components/LogoutButton";
 import { formatCurrency } from "@/lib/format";
 import type { Goal } from "@/lib/db/schema";
 
@@ -38,9 +37,9 @@ function formatTargetDate(dateStr: string): string {
 }
 
 function barColor(pct: number): string {
-  if (pct >= 100) return "bg-emerald-500";
-  if (pct >= 70) return "bg-amber-400";
-  return "bg-red-500";
+  if (pct >= 100) return "bg-success";
+  if (pct >= 70) return "bg-warning";
+  return "bg-destructive";
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -53,49 +52,13 @@ interface GoalWithStats extends Goal {
   neededMonthly: number;
 }
 
-// ── SidebarItem ───────────────────────────────────────────────────────────────
-
-function SidebarItem({ href, icon, label, active, badge }: {
-  href: string; icon: string; label: string; active?: boolean; badge?: number;
-}) {
-  return (
-    <Link href={href} className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-      active ? "bg-white/15 text-white font-medium" : "text-slate-400 hover:text-white hover:bg-white/10"
-    }`}>
-      <span className="w-4 text-center shrink-0 text-base leading-none">{icon}</span>
-      <span className="flex-1 truncate">{label}</span>
-      {badge != null && (
-        <span className="ml-auto min-w-[1.25rem] h-5 rounded-full bg-blue-500 text-white text-xs font-semibold flex items-center justify-center px-1.5">
-          {badge}
-        </span>
-      )}
-    </Link>
-  );
-}
-
-// ── MobileNavItem ─────────────────────────────────────────────────────────────
-
-function MobileNavItem({ href, icon, label, active, badge }: {
-  href: string; icon: string; label: string; active?: boolean; badge?: boolean;
-}) {
-  return (
-    <Link href={href} className={`flex-1 flex flex-col items-center py-2.5 text-xs gap-1 relative transition-colors ${
-      active ? "text-blue-600" : "text-gray-400 hover:text-gray-700"
-    }`}>
-      <span className="text-lg">{icon}</span>
-      {label}
-      {badge && <span className="absolute top-2 left-1/2 translate-x-1 w-2 h-2 bg-blue-500 rounded-full" />}
-    </Link>
-  );
-}
-
 // ── SummaryRow ────────────────────────────────────────────────────────────────
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-sm text-gray-500 truncate">{label}</span>
-      <span className="text-sm font-semibold tabular-nums text-gray-900 shrink-0">{value}</span>
+      <span className="text-sm text-muted-foreground truncate">{label}</span>
+      <span className="text-sm font-semibold tabular-nums text-foreground shrink-0">{value}</span>
     </div>
   );
 }
@@ -119,33 +82,33 @@ function GoalCard({ goal, editingId, editValue, setEditValue, onEditAllocation, 
   const projected = alloc * goal.months;
 
   return (
-    <div className={`rounded-2xl bg-white border shadow-sm overflow-hidden transition-colors ${
-      goal.onTrack ? "border-gray-200" : goal.months === 0 ? "border-gray-200" : "border-red-100"
+    <div className={`rounded-2xl bg-card border shadow-sm overflow-hidden transition-colors ${
+      goal.onTrack ? "border-border" : goal.months === 0 ? "border-border" : "border-destructive/30"
     }`}>
       {/* Header */}
       <div className="flex items-start justify-between px-5 pt-4 pb-3 gap-4">
         <div className="flex items-center gap-3 min-w-0">
           {goal.icon
             ? <span className="text-2xl shrink-0 leading-none">{goal.icon}</span>
-            : <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                <span className="text-gray-500 text-sm font-bold">{goal.name[0]}</span>
+            : <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                <span className="text-muted-foreground text-sm font-bold">{goal.name[0]}</span>
               </div>
           }
           <div className="min-w-0">
-            <p className="font-semibold text-gray-900 truncate">{goal.name}</p>
-            <p className="text-xs text-gray-400 mt-0.5 tabular-nums">
+            <p className="font-semibold text-foreground truncate">{goal.name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
               {formatCurrency(target, cur)} target
             </p>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-xs font-semibold text-gray-600">{formatTargetDate(goal.target_date)}</span>
+          <span className="text-xs font-semibold text-foreground/80">{formatTargetDate(goal.target_date)}</span>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
             goal.months === 0
-              ? "bg-gray-100 text-gray-500"
+              ? "bg-muted text-muted-foreground"
               : goal.months <= 6
-              ? "bg-amber-50 text-amber-600"
-              : "bg-gray-50 text-gray-500"
+              ? "bg-warning/15 text-warning"
+              : "bg-muted text-muted-foreground"
           }`}>
             {formatMonthsLabel(goal.months)}
           </span>
@@ -155,33 +118,33 @@ function GoalCard({ goal, editingId, editValue, setEditValue, onEditAllocation, 
       {/* Progress bar */}
       <div className="px-5 pb-3">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs text-gray-400">Coverage at current rate</span>
+          <span className="text-xs text-muted-foreground">Coverage at current rate</span>
           <span className={`text-xs font-semibold tabular-nums ${
-            goal.pct >= 100 ? "text-emerald-600" : goal.pct >= 70 ? "text-amber-500" : "text-red-500"
+            goal.pct >= 100 ? "text-success" : goal.pct >= 70 ? "text-warning" : "text-destructive"
           }`}>
             {goal.pct.toFixed(0)}%
           </span>
         </div>
-        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+        <div className="h-2 rounded-full bg-muted overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${barColor(goal.pct)}`}
             style={{ width: `${goal.pct}%` }}
           />
         </div>
         <div className="flex justify-between mt-1.5">
-          <span className="text-xs text-gray-400 tabular-nums">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {formatCurrency(projected, cur)} projected
           </span>
-          <span className="text-xs text-gray-400 tabular-nums">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {formatCurrency(target, cur)} needed
           </span>
         </div>
       </div>
 
       {/* Footer: allocation + status + delete */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-gray-50 gap-4">
+      <div className="flex items-center justify-between px-5 py-3 border-t border-border/50 gap-4">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs text-gray-400 shrink-0">Monthly:</span>
+          <span className="text-xs text-muted-foreground shrink-0">Monthly:</span>
           {isEditing ? (
             <div className="flex items-center gap-1.5">
               <input
@@ -192,16 +155,16 @@ function GoalCard({ goal, editingId, editValue, setEditValue, onEditAllocation, 
                   if (e.key === "Enter") onSaveAllocation(goal.id);
                   if (e.key === "Escape") onCancelEdit();
                 }}
-                className="w-28 rounded-lg border border-blue-400 px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 tabular-nums"
+                className="w-28 rounded-lg border border-primary px-2 py-1 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary tabular-nums"
                 autoFocus
               />
-              <button onClick={() => onSaveAllocation(goal.id)} className="text-xs text-blue-600 hover:text-blue-500 font-medium">Save</button>
-              <button onClick={onCancelEdit} className="text-xs text-gray-400 hover:text-gray-600">×</button>
+              <button onClick={() => onSaveAllocation(goal.id)} className="text-xs text-primary hover:text-primary/80 font-medium">Save</button>
+              <button onClick={onCancelEdit} className="text-xs text-muted-foreground hover:text-foreground">×</button>
             </div>
           ) : (
             <button
               onClick={() => onEditAllocation(goal.id, String(alloc))}
-              className="text-sm font-semibold text-gray-900 hover:text-blue-600 tabular-nums transition-colors"
+              className="text-sm font-semibold text-foreground hover:text-primary tabular-nums transition-colors"
               title="Click to edit monthly allocation"
             >
               {formatCurrency(alloc, cur)}/mo
@@ -211,19 +174,19 @@ function GoalCard({ goal, editingId, editValue, setEditValue, onEditAllocation, 
 
         <div className="flex items-center gap-2 shrink-0">
           {goal.months === 0 ? (
-            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">Past due</span>
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground">Past due</span>
           ) : goal.onTrack ? (
-            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              On track ✓
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-success/15 text-success border border-success/30">
+              On track
             </span>
           ) : (
-            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-destructive/15 text-destructive border border-destructive/30">
               Need +{formatCurrency(goal.shortfall, cur)}/mo
             </span>
           )}
           <button
             onClick={() => onDelete(goal.id)}
-            className="text-gray-300 hover:text-red-500 transition-colors text-lg leading-none"
+            className="text-muted-foreground hover:text-destructive transition-colors text-lg leading-none"
             title="Delete goal"
           >
             ×
@@ -234,7 +197,7 @@ function GoalCard({ goal, editingId, editValue, setEditValue, onEditAllocation, 
       {/* Notes */}
       {goal.notes && (
         <div className="px-5 pb-3 -mt-1">
-          <p className="text-xs text-gray-400 italic">{goal.notes}</p>
+          <p className="text-xs text-muted-foreground italic">{goal.notes}</p>
         </div>
       )}
     </div>
@@ -243,8 +206,8 @@ function GoalCard({ goal, editingId, editValue, setEditValue, onEditAllocation, 
 
 // ── AddGoalForm ───────────────────────────────────────────────────────────────
 
-const inputCls = "w-full rounded-xl bg-white border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
-const labelCls = "block text-xs font-medium text-gray-500 mb-1.5";
+const inputCls = "w-full rounded-xl bg-background border border-border px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition";
+const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5";
 
 function AddGoalForm({ onSave, onCancel }: {
   onSave: (data: {
@@ -282,10 +245,10 @@ function AddGoalForm({ onSave, onCancel }: {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl bg-white border border-blue-200 shadow-sm p-5">
+    <form onSubmit={handleSubmit} className="rounded-2xl bg-card border border-primary/30 shadow-sm p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-900">New Goal</h3>
-        <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        <h3 className="font-semibold text-foreground">New Goal</h3>
+        <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -358,24 +321,24 @@ function AddGoalForm({ onSave, onCancel }: {
 
       {/* Live coverage preview */}
       {previewTarget > 0 && previewMonths > 0 && (
-        <div className="mt-4 rounded-xl bg-gray-50 border border-gray-100 px-4 py-3">
+        <div className="mt-4 rounded-xl bg-muted border border-border px-4 py-3">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-gray-500">Coverage preview</span>
+            <span className="text-xs text-muted-foreground">Coverage preview</span>
             <span className={`text-xs font-semibold tabular-nums ${
-              previewPct >= 100 ? "text-emerald-600" : previewPct >= 70 ? "text-amber-500" : "text-red-500"
+              previewPct >= 100 ? "text-success" : previewPct >= 70 ? "text-warning" : "text-destructive"
             }`}>
               {previewPct.toFixed(0)}%
             </span>
           </div>
-          <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
+          <div className="h-1.5 rounded-full bg-border overflow-hidden">
             <div className={`h-full rounded-full ${barColor(previewPct)}`} style={{ width: `${previewPct}%` }} />
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">
+          <p className="text-xs text-muted-foreground mt-1.5">
             {previewAlloc > 0
               ? `${formatCurrency(previewAlloc * previewMonths, "JMD")} projected over ${formatMonthsLabel(previewMonths)}`
               : `${formatMonthsLabel(previewMonths)} away`}
             {previewPct < 100 && previewMonths > 0 && previewTarget > 0 && (
-              <span className="text-red-500">
+              <span className="text-destructive">
                 {" · "}Need {formatCurrency(previewTarget / previewMonths, "JMD")}/mo to hit target
               </span>
             )}
@@ -387,11 +350,11 @@ function AddGoalForm({ onSave, onCancel }: {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 px-5 py-2.5 text-sm font-medium text-white transition-colors"
+          className="rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-50 px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors"
         >
           {saving ? "Saving…" : "Add Goal"}
         </button>
-        <button type="button" onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+        <button type="button" onClick={onCancel} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
           Cancel
         </button>
       </div>
@@ -401,10 +364,8 @@ function AddGoalForm({ onSave, onCancel }: {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function GoalsClient({ goals: initialGoals, pendingCount, userEmail }: {
+export default function GoalsClient({ goals: initialGoals }: {
   goals: Goal[];
-  pendingCount: number;
-  userEmail: string;
 }) {
   const router = useRouter();
   const [showAddForm, setShowAddForm] = useState(false);
@@ -435,12 +396,12 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
   const nearestGoal = [...goalsWithStats].sort((a, b) => a.target_date.localeCompare(b.target_date))[0];
 
   const bannerBg = goalsWithStats.length === 0
-    ? "bg-blue-600"
+    ? "bg-primary"
     : atRiskCount === 0
-    ? "bg-emerald-600"
+    ? "bg-success"
     : atRiskCount === goalsWithStats.length
-    ? "bg-red-600"
-    : "bg-blue-600";
+    ? "bg-destructive"
+    : "bg-primary";
 
   async function handleAddGoal(data: {
     name: string; icon: string; target_amount: number;
@@ -474,56 +435,20 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900">
-
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-56 flex-col fixed inset-y-0 left-0 bg-[#1B1F3B] z-20">
-        <div className="px-5 py-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
-              <span className="text-white font-bold text-sm">L</span>
-            </div>
-            <span className="font-semibold text-white tracking-tight">Ledger</span>
-          </div>
-        </div>
-        <nav className="flex-1 px-3 py-2 space-y-0.5">
-          <SidebarItem href="/" icon="⊞" label="Dashboard" />
-          <SidebarItem href="/plan" icon="◫" label="Plan" />
-          <SidebarItem href="/goals" icon="◇" label="Goals" active />
-          <SidebarItem href="/review" icon="✓" label="Review" badge={pendingCount > 0 ? pendingCount : undefined} />
-          <SidebarItem href="/transactions" icon="≡" label="Transactions" />
-          <SidebarItem href="/register" icon="▦" label="Register" />
-          <SidebarItem href="/accounts" icon="⬡" label="All Accounts" />
-          <SidebarItem href="/budgets" icon="◎" label="Budgets" />
-          <SidebarItem href="/categories" icon="◈" label="Categories" />
-        </nav>
-        <div className="px-3 pb-5 pt-3 border-t border-white/10 space-y-2">
-          <p className="px-3 text-xs text-slate-500 truncate">{userEmail}</p>
-          <div className="px-3"><LogoutButton /></div>
-        </div>
-      </aside>
+    <div className="flex min-h-screen md:pl-60">
 
       {/* Content + right panel */}
-      <div className="flex-1 md:pl-56 flex min-h-screen">
+      <div className="flex-1 flex min-h-screen">
 
         {/* Center column */}
         <div className="flex-1 min-w-0 flex flex-col">
 
-          {/* Mobile header */}
-          <header className="md:hidden sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
-            <Link href="/" className="text-gray-400 hover:text-gray-700 transition-colors text-lg">‹</Link>
-            <h1 className="text-base font-semibold text-gray-900 flex-1">Goals</h1>
-            <button onClick={() => setShowAddForm(true)} className="text-sm text-blue-600 font-medium hover:text-blue-500">
-              + Add
-            </button>
-          </header>
-
           {/* Desktop header */}
-          <div className="hidden md:flex sticky top-0 z-10 bg-white border-b border-gray-200 px-8 py-3 items-center justify-between">
-            <h1 className="text-base font-semibold text-gray-900">Goals</h1>
+          <div className="sticky top-0 z-10 bg-card border-b border-border px-4 md:px-8 py-3 flex items-center justify-between">
+            <h1 className="text-base font-semibold text-foreground">Goals</h1>
             <button
               onClick={() => setShowAddForm(true)}
-              className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors"
+              className="rounded-xl bg-primary hover:bg-primary/90 px-4 py-2 text-sm font-medium text-primary-foreground transition-colors"
             >
               + Add goal
             </button>
@@ -564,15 +489,15 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
             )}
 
             {goalsWithStats.length === 0 && !showAddForm ? (
-              <div className="rounded-2xl bg-white border border-gray-200 border-dashed px-6 py-16 text-center">
-                <div className="text-4xl mb-3 text-gray-300">◇</div>
-                <p className="text-gray-500 font-medium">No goals yet</p>
-                <p className="text-gray-400 text-sm mt-1.5 max-w-sm mx-auto">
+              <div className="rounded-2xl bg-card border border-border border-dashed px-6 py-16 text-center">
+                <div className="text-4xl mb-3 text-muted-foreground/50">◇</div>
+                <p className="text-muted-foreground font-medium">No goals yet</p>
+                <p className="text-muted-foreground/70 text-sm mt-1.5 max-w-sm mx-auto">
                   Set a target amount, target date, and monthly allocation — see instantly if you&apos;re on pace
                 </p>
                 <button
                   onClick={() => setShowAddForm(true)}
-                  className="inline-block mt-5 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-sm font-medium text-white transition-colors"
+                  className="inline-block mt-5 rounded-xl bg-primary hover:bg-primary/90 px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors"
                 >
                   Add your first goal
                 </button>
@@ -598,9 +523,9 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
         </div>
 
         {/* Right summary panel */}
-        <aside className="hidden md:flex w-72 flex-col border-l border-gray-200 bg-white sticky top-0 h-screen overflow-y-auto shrink-0">
-          <div className="p-5 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">Goals — Summary</h3>
+        <aside className="hidden md:flex w-72 flex-col border-l border-border bg-card sticky top-0 h-screen overflow-y-auto shrink-0">
+          <div className="p-5 border-b border-border">
+            <h3 className="text-sm font-semibold text-foreground">Goals — Summary</h3>
           </div>
 
           <div className="flex-1 p-5 space-y-6">
@@ -609,10 +534,10 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
               <SummaryRow label="Monthly commitment" value={formatCurrency(totalMonthly, "JMD")} />
               <SummaryRow label="Total target" value={formatCurrency(totalTarget, "JMD")} />
               {goalsWithStats.length > 0 && (
-                <div className="border-t border-gray-100 pt-3 flex items-center gap-3">
-                  <span className="text-xs text-emerald-600 font-semibold">{onTrackCount} on track</span>
+                <div className="border-t border-border pt-3 flex items-center gap-3">
+                  <span className="text-xs text-success font-semibold">{onTrackCount} on track</span>
                   {atRiskCount > 0 && (
-                    <span className="text-xs text-red-500 font-semibold">{atRiskCount} at risk</span>
+                    <span className="text-xs text-destructive font-semibold">{atRiskCount} at risk</span>
                   )}
                 </div>
               )}
@@ -621,26 +546,26 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
             {/* Next milestone */}
             {nearestGoal && (
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Next Milestone</p>
-                <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Next Milestone</p>
+                <div className="rounded-xl bg-muted border border-border px-3 py-3">
                   <div className="flex items-center gap-2.5 mb-2">
                     {nearestGoal.icon
                       ? <span className="text-lg leading-none">{nearestGoal.icon}</span>
-                      : <div className="w-7 h-7 rounded-lg bg-gray-200 flex items-center justify-center shrink-0">
-                          <span className="text-gray-500 text-xs font-bold">{nearestGoal.name[0]}</span>
+                      : <div className="w-7 h-7 rounded-lg bg-border flex items-center justify-center shrink-0">
+                          <span className="text-muted-foreground text-xs font-bold">{nearestGoal.name[0]}</span>
                         </div>
                     }
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{nearestGoal.name}</p>
-                      <p className="text-xs text-gray-400">{formatTargetDate(nearestGoal.target_date)}</p>
+                      <p className="text-sm font-medium text-foreground">{nearestGoal.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatTargetDate(nearestGoal.target_date)}</p>
                     </div>
                   </div>
-                  <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-border overflow-hidden">
                     <div className={`h-full rounded-full ${barColor(nearestGoal.pct)}`} style={{ width: `${nearestGoal.pct}%` }} />
                   </div>
-                  <p className={`text-xs mt-1.5 font-medium ${nearestGoal.onTrack ? "text-emerald-600" : "text-red-500"}`}>
+                  <p className={`text-xs mt-1.5 font-medium ${nearestGoal.onTrack ? "text-success" : "text-destructive"}`}>
                     {nearestGoal.onTrack
-                      ? "On track ✓"
+                      ? "On track"
                       : `Need +${formatCurrency(nearestGoal.shortfall, "JMD")}/mo`}
                   </p>
                 </div>
@@ -650,26 +575,26 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
             {/* Coverage breakdown */}
             {goalsWithStats.length > 1 && (
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Coverage</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Coverage</p>
                 <div className="space-y-2.5">
                   {goalsWithStats.map((g) => (
                     <div key={g.id} className="flex items-center gap-3">
                       <div className="shrink-0 w-5 text-center">
                         {g.icon
                           ? <span className="text-sm leading-none">{g.icon}</span>
-                          : <div className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center">
-                              <span className="text-gray-400 text-xs">{g.name[0]}</span>
+                          : <div className="w-5 h-5 rounded bg-muted flex items-center justify-center">
+                              <span className="text-muted-foreground text-xs">{g.name[0]}</span>
                             </div>
                         }
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-700 truncate mb-0.5">{g.name}</p>
-                        <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
+                        <p className="text-xs text-foreground/80 truncate mb-0.5">{g.name}</p>
+                        <div className="h-1 rounded-full bg-muted overflow-hidden">
                           <div className={`h-full rounded-full ${barColor(g.pct)}`} style={{ width: `${g.pct}%` }} />
                         </div>
                       </div>
                       <span className={`text-xs font-semibold shrink-0 tabular-nums ${
-                        g.pct >= 100 ? "text-emerald-600" : g.pct >= 70 ? "text-amber-500" : "text-red-500"
+                        g.pct >= 100 ? "text-success" : g.pct >= 70 ? "text-warning" : "text-destructive"
                       }`}>
                         {g.pct.toFixed(0)}%
                       </span>
@@ -679,32 +604,19 @@ export default function GoalsClient({ goals: initialGoals, pendingCount, userEma
               </div>
             )}
 
-            <div className="border-t border-gray-100" />
+            <div className="border-t border-border" />
 
             <div className="space-y-1">
-              <Link href="/" className="flex items-center justify-between py-2 px-3 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                <span>Dashboard</span><span className="text-gray-400 text-xs">›</span>
+              <Link href="/" className="flex items-center justify-between py-2 px-3 rounded-xl text-sm text-foreground/80 hover:bg-muted transition-colors">
+                <span>Dashboard</span><span className="text-muted-foreground text-xs">›</span>
               </Link>
-              <Link href="/plan" className="flex items-center justify-between py-2 px-3 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                <span>Monthly plan</span><span className="text-gray-400 text-xs">›</span>
+              <Link href="/plan" className="flex items-center justify-between py-2 px-3 rounded-xl text-sm text-foreground/80 hover:bg-muted transition-colors">
+                <span>Monthly plan</span><span className="text-muted-foreground text-xs">›</span>
               </Link>
-              {pendingCount > 0 && (
-                <Link href="/review" className="flex items-center justify-between py-2 px-3 rounded-xl text-sm text-blue-600 hover:bg-blue-50 transition-colors">
-                  <span>{pendingCount} pending review</span><span className="text-blue-400 text-xs">›</span>
-                </Link>
-              )}
             </div>
           </div>
         </aside>
       </div>
-
-      {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 inset-x-0 border-t border-gray-200 bg-white flex md:hidden z-20">
-        <MobileNavItem href="/" icon="⊞" label="Home" />
-        <MobileNavItem href="/goals" icon="◇" label="Goals" active />
-        <MobileNavItem href="/review" icon="✓" label="Review" badge={pendingCount > 0} />
-        <MobileNavItem href="/budgets" icon="◎" label="Budgets" />
-      </nav>
     </div>
   );
 }

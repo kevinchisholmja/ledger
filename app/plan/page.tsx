@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { buckets, categories, transactions, budgetAssignments } from "@/lib/db/schema";
-import { eq, and, ne, gte, lte, isNotNull, or, sql } from "drizzle-orm";
+import { eq, and, ne, gte, lte, isNotNull, sql } from "drizzle-orm";
 import { BUDGET_PERIOD_DAYS } from "@/lib/period";
 import PlanClient from "./PlanClient";
 
@@ -67,7 +67,7 @@ export default async function PlanPage({
   const { start, end } = getMonthRange(yearMonth);
   const monthLabel = formatYearMonth(yearMonth);
 
-  const [userBuckets, assignmentRows, spendingRows, incomeRow, pendingCount] = await Promise.all([
+  const [userBuckets, assignmentRows, spendingRows, incomeRow] = await Promise.all([
     db.select({
       id: buckets.id,
       name: buckets.name,
@@ -113,13 +113,6 @@ export default async function PlanPage({
         ne(transactions.status, "pending_ocr"),
         isNotNull(transactions.amount),
       )),
-
-    db.select({ count: sql<number>`count(*)::int` }).from(transactions)
-      .where(and(
-        eq(transactions.user_id, user.id),
-        or(eq(transactions.status, "pending_review"), eq(transactions.status, "pending_ocr")),
-      ))
-      .then((r) => r[0]?.count ?? 0),
   ]);
 
   const assignmentMap = new Map(assignmentRows.map((r) => [r.bucket_id!, Number(r.amount)]));
@@ -175,8 +168,6 @@ export default async function PlanPage({
       tbbIncome={incomeTotal}
       tbbAssigned={tbbAssigned}
       totalActivity={totalActivity}
-      pendingCount={pendingCount}
-      userEmail={user.email ?? ""}
     />
   );
 }
