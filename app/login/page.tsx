@@ -78,9 +78,35 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
       setPasswordLoading(false);
-    } else {
-      console.log("[v0] Sign in successful, redirecting to /");
-      window.location.href = "/";
+    } else if (data.session) {
+      console.log("[v0] Sign in successful, setting session server-side...");
+      
+      // Set session server-side to work around iframe cookie restrictions
+      try {
+        const sessionRes = await fetch("/api/dev/set-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          }),
+        });
+        
+        if (!sessionRes.ok) {
+          const errData = await sessionRes.json();
+          console.error("[v0] Failed to set server session:", errData);
+          setError("Sign-in succeeded but session sync failed. Try again.");
+          setPasswordLoading(false);
+          return;
+        }
+        
+        console.log("[v0] Server session set, redirecting to /");
+        window.location.href = "/";
+      } catch (err) {
+        console.error("[v0] Error setting server session:", err);
+        setError("Sign-in succeeded but session sync failed. Try again.");
+        setPasswordLoading(false);
+      }
     }
   }
 
