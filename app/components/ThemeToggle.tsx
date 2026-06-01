@@ -10,6 +10,20 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
 
   useEffect(() => setMounted(true), []);
 
+  // Prevent hydration mismatch by not rendering theme-specific icon until mounted
+  if (!mounted) {
+    return (
+      <button
+        type="button"
+        aria-label="Toggle theme"
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground ${className}`}
+      >
+        <span className="size-4" />
+        <span className="sr-only">Toggle theme</span>
+      </button>
+    );
+  }
+
   const isDark = resolvedTheme === "dark";
 
   return (
@@ -19,7 +33,7 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground ${className}`}
     >
-      {mounted && isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
       <span className="sr-only">Toggle theme</span>
     </button>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { LogOut } from "lucide-react";
@@ -17,7 +17,6 @@ function isActive(pathname: string, href: string) {
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [pendingCount, setPendingCount] = useState(0);
   const [email, setEmail] = useState<string | null>(null);
 
@@ -45,12 +44,12 @@ export default function Sidebar() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !anonKey) {
-      router.push("/login");
+      window.location.href = "/login";
       return;
     }
     const supabase = createBrowserClient(url, anonKey);
     await supabase.auth.signOut();
-    router.push("/login");
+    window.location.href = "/login";
   }
 
   return (
