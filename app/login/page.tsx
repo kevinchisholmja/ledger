@@ -52,22 +52,34 @@ export default function LoginPage() {
 
   async function handlePasswordSignIn(e: React.FormEvent) {
     e.preventDefault();
+    console.log("[v0] handlePasswordSignIn called with email:", email);
     setPasswordLoading(true);
     setError(null);
+    
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    console.log("[v0] Env vars check:", { hasUrl: !!url, hasAnonKey: !!anonKey });
+    
     const supabase = getSupabase();
     if (!supabase) {
+      console.log("[v0] Supabase client is null - env vars missing");
       setError("Supabase is not configured. Please add environment variables.");
       setPasswordLoading(false);
       return;
     }
-    const { error } = await supabase.auth.signInWithPassword({
+    
+    console.log("[v0] Attempting signInWithPassword...");
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    console.log("[v0] signInWithPassword result:", { data, error: error?.message });
+    
     if (error) {
       setError(error.message);
       setPasswordLoading(false);
     } else {
+      console.log("[v0] Sign in successful, redirecting to /");
       window.location.href = "/";
     }
   }
