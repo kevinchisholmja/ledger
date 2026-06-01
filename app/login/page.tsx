@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
 function getSupabase() {
@@ -13,6 +14,7 @@ function getSupabase() {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [sent, setSent] = useState(false);
@@ -79,8 +81,11 @@ export default function LoginPage() {
       setError(error.message);
       setPasswordLoading(false);
     } else {
-      console.log("[v0] Sign in successful, redirecting to /");
-      window.location.href = "/";
+      console.log("[v0] Sign in successful, refreshing and redirecting to /");
+      // Small delay to ensure cookies are set before redirect
+      await new Promise(resolve => setTimeout(resolve, 100));
+      router.refresh();
+      router.push("/");
     }
   }
 
