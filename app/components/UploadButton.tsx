@@ -10,13 +10,12 @@ export default function UploadButton() {
   const router = useRouter();
   const pathname = usePathname();
   const inputRef = useRef<HTMLInputElement>(null);
-
-  if (pathname === "/login") return null;
-
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
+
+  if (pathname === "/login") return null;
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
