@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { LogOut, Menu } from "lucide-react";
@@ -18,7 +18,6 @@ function isActive(pathname: string, href: string) {
 
 export default function MobileNav() {
   const pathname = usePathname();
-  const router = useRouter();
   const [showMore, setShowMore] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -39,12 +38,12 @@ export default function MobileNav() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !anonKey) {
-      router.push("/login");
+      window.location.href = "/login";
       return;
     }
     const supabase = createBrowserClient(url, anonKey);
     await supabase.auth.signOut();
-    router.push("/login");
+    window.location.href = "/login";
   }
 
   const isMoreActive = MORE_ITEMS.some((i) => isActive(pathname, i.href));
