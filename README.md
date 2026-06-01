@@ -10,6 +10,10 @@ confirm expenses in the PWA dashboard. Track spending against budget buckets.
 
 ---
 
+**Status:** Active development. Core receipt ingestion, AI extraction, expense review, and dashboard workflows are implemented. Additional polish, reporting, budget features, and reliability improvements are ongoing.
+
+---
+
 ## How it works
 
 ```
