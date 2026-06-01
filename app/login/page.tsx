@@ -14,10 +14,75 @@ function getSupabase() {
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDevLogin, setShowDevLogin] = useState(false);
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [passwordSetSuccess, setPasswordSetSuccess] = useState(false);
+
+  async function handleSetPassword() {
+    if (!email || !password) {
+      setError("Enter email and password first");
+      return;
+    }
+    setSettingPassword(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/dev/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to set password");
+      } else {
+        setPasswordSetSuccess(true);
+        setError(null);
+      }
+    } catch (err) {
+      setError(String(err));
+    }
+    setSettingPassword(false);
+  }
+
+  async function handlePasswordSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    console.log("[v0] handlePasswordSignIn called with email:", email);
+    setPasswordLoading(true);
+    setError(null);
+    
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    console.log("[v0] Env vars check:", { hasUrl: !!url, hasAnonKey: !!anonKey });
+    
+    const supabase = getSupabase();
+    if (!supabase) {
+      console.log("[v0] Supabase client is null - env vars missing");
+      setError("Supabase is not configured. Please add environment variables.");
+      setPasswordLoading(false);
+      return;
+    }
+    
+    console.log("[v0] Attempting signInWithPassword...");
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    console.log("[v0] signInWithPassword result:", { data, error: error?.message });
+    
+    if (error) {
+      setError(error.message);
+      setPasswordLoading(false);
+    } else {
+      console.log("[v0] Sign in successful, redirecting to /");
+      window.location.href = "/";
+    }
+  }
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
@@ -143,52 +208,119 @@ export default function LoginPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Dev mode password login toggle */}
               <button
-                onClick={handleGoogleSignIn}
-                disabled={googleLoading || loading}
-                className="w-full flex items-center justify-center gap-3 rounded-xl bg-white hover:bg-zinc-50 active:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 text-sm font-semibold text-zinc-900 transition-colors shadow-sm"
+                type="button"
+                onClick={() => setShowDevLogin(!showDevLogin)}
+                className="w-full text-xs text-zinc-500 hover:text-zinc-400 transition-colors py-1"
               >
-                {googleLoading ? (
-                  <span className="text-zinc-500">Redirecting…</span>
-                ) : (
-                  <>
-                    <GoogleIcon />
-                    Continue with Google
-                  </>
-                )}
+                {showDevLogin ? "Hide dev login" : "Dev: Sign in with password"}
               </button>
 
-              <div className="flex items-center gap-3 py-1">
-                <div className="flex-1 h-px bg-zinc-800" />
-                <span className="text-xs text-zinc-600">or</span>
-                <div className="flex-1 h-px bg-zinc-800" />
-              </div>
-
-              <form onSubmit={handleMagicLink} className="space-y-3">
-                <input
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3 text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-
-                {error && (
-                  <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
-                    {error}
+              {showDevLogin ? (
+                <form onSubmit={handlePasswordSignIn} className="space-y-3">
+                  <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2">
+                    <p className="text-xs text-amber-400">Dev mode: Email/password login for sandbox testing</p>
+                  </div>
+                  {passwordSetSuccess && (
+                    <div className="rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-2">
+                      <p className="text-xs text-green-400">Password set successfully! You can now sign in.</p>
+                    </div>
+                  )}
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3 text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  />
+                  <input
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password (min 6 chars)"
+                    className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3 text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  />
+                  {error && (
+                    <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
+                      {error}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSetPassword}
+                      disabled={settingPassword || !email || !password}
+                      className="flex-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 text-sm font-medium text-zinc-300 transition-colors"
+                    >
+                      {settingPassword ? "Setting..." : "Set Password"}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={passwordLoading}
+                      className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 text-sm font-medium text-white transition-colors"
+                    >
+                      {passwordLoading ? "Signing in..." : "Sign In"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-600 text-center">
+                    First time? Enter email + password, click &quot;Set Password&quot;, then &quot;Sign In&quot;
                   </p>
-                )}
+                </form>
+              ) : (
+                <>
+                  <button
+                    onClick={handleGoogleSignIn}
+                    disabled={googleLoading || loading}
+                    className="w-full flex items-center justify-center gap-3 rounded-xl bg-white hover:bg-zinc-50 active:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 text-sm font-semibold text-zinc-900 transition-colors shadow-sm"
+                  >
+                    {googleLoading ? (
+                      <span className="text-zinc-500">Redirecting…</span>
+                    ) : (
+                      <>
+                        <GoogleIcon />
+                        Continue with Google
+                      </>
+                    )}
+                  </button>
 
-                <button
-                  type="submit"
-                  disabled={loading || googleLoading}
-                  className="w-full rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 text-sm font-medium text-zinc-300 transition-colors"
-                >
-                  {loading ? "Sending…" : "Send magic link"}
-                </button>
-              </form>
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex-1 h-px bg-zinc-800" />
+                    <span className="text-xs text-zinc-600">or</span>
+                    <div className="flex-1 h-px bg-zinc-800" />
+                  </div>
+
+                  <form onSubmit={handleMagicLink} className="space-y-3">
+                    <input
+                      type="email"
+                      required
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="your@email.com"
+                      className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3 text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    />
+
+                    {error && (
+                      <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
+                        {error}
+                      </p>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading || googleLoading}
+                      className="w-full rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 text-sm font-medium text-zinc-300 transition-colors"
+                    >
+                      {loading ? "Sending…" : "Send magic link"}
+                    </button>
+                  </form>
+                </>
+              )}
             </div>
           )}
         </div>
