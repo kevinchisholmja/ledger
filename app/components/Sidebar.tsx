@@ -29,20 +29,26 @@ export default function Sidebar() {
   }, [pathname]);
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) {
+      console.log("[v0] Supabase env vars not configured - skipping auth check");
+      return;
+    }
+    const supabase = createBrowserClient(url, anonKey);
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
   }, []);
 
   if (HIDDEN_ROUTES.includes(pathname)) return null;
 
   async function signOut() {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) {
+      router.push("/login");
+      return;
+    }
+    const supabase = createBrowserClient(url, anonKey);
     await supabase.auth.signOut();
     router.push("/login");
   }

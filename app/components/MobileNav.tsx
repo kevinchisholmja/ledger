@@ -36,10 +36,13 @@ export default function MobileNav() {
   if (pathname === "/login") return null;
 
   async function signOut() {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) {
+      router.push("/login");
+      return;
+    }
+    const supabase = createBrowserClient(url, anonKey);
     await supabase.auth.signOut();
     router.push("/login");
   }

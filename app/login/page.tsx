@@ -4,10 +4,12 @@ import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
 function getSupabase() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    return null;
+  }
+  return createBrowserClient(url, anonKey);
 }
 
 export default function LoginPage() {
@@ -20,7 +22,13 @@ export default function LoginPage() {
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
     setError(null);
-    const { error } = await getSupabase().auth.signInWithOAuth({
+    const supabase = getSupabase();
+    if (!supabase) {
+      setError("Supabase is not configured. Please add environment variables.");
+      setGoogleLoading(false);
+      return;
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/api/auth/callback` },
     });
@@ -34,7 +42,13 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = await getSupabase().auth.signInWithOtp({
+    const supabase = getSupabase();
+    if (!supabase) {
+      setError("Supabase is not configured. Please add environment variables.");
+      setLoading(false);
+      return;
+    }
+    const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${window.location.origin}/api/auth/callback` },
     });
