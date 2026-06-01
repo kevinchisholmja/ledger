@@ -7,25 +7,9 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // DEV BYPASS: Skip auth in v0 sandbox (cookies don't persist due to iframe isolation)
-  // Check for v0 sandbox by looking at the host or referer
-  const host = request.headers.get("host") || "";
-  const isV0Sandbox = host.includes("vusercontent.net") || host.includes("v0.dev");
-  if (isV0Sandbox) {
-    console.log("[v0] Skipping auth check in v0 sandbox environment");
-    return supabaseResponse;
-  }
-
   // If Supabase isn't configured yet, don't crash the whole app.
   // Let the request through so the UI can render and surface a clear setup state.
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.log(
-      "[v0] Supabase env vars missing in middleware:",
-      JSON.stringify({
-        hasUrl: Boolean(supabaseUrl),
-        hasAnonKey: Boolean(supabaseAnonKey),
-      })
-    );
     return supabaseResponse;
   }
 
