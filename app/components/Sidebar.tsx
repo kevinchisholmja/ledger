@@ -19,6 +19,11 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [pendingCount, setPendingCount] = useState(0);
   const [email, setEmail] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     fetch("/api/review/count")
@@ -91,12 +96,12 @@ export default function Sidebar() {
 
       <div className="space-y-2 border-t border-sidebar-border px-3 py-4">
         <div className="flex items-center justify-between gap-2 px-1">
-          <p className="truncate text-xs text-muted-foreground">{email ?? ""}</p>
+          <p className="truncate text-xs text-muted-foreground">{mounted ? (email ?? "") : ""}</p>
           <ThemeToggle />
         </div>
         <button
           onClick={signOut}
-          className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+          className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
         >
           <LogOut className="size-[18px] shrink-0" />
           Sign out

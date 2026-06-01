@@ -97,7 +97,7 @@ export default function MobileNav() {
           <div className="border-t border-border px-5 py-3.5">
             <button
               onClick={signOut}
-              className="flex w-full items-center gap-4 text-sm text-destructive transition-colors hover:opacity-80"
+              className="flex w-full cursor-pointer items-center gap-4 text-sm text-destructive transition-colors hover:opacity-80"
             >
               <LogOut className="size-5 shrink-0" />
               Sign out

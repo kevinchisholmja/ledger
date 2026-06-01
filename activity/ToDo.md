@@ -19,6 +19,8 @@ For the context behind each phase, see `activity/phases/`.
       2 emails/hour shared SMTP cap — use Resend or similar
 
 ### UI / UX
+- [x] Fix logout cursor pointer on hover — added `cursor-pointer` to Sign out buttons
+      in `Sidebar.tsx` and `MobileNav.tsx`
 - [ ] Replace placeholder PWA icons (`public/icon-192.png`, `public/icon-512.png`) with real
       branded icons — currently solid zinc-950 squares
 - [ ] Mobile summary panel — right summary panel is hidden on mobile (`hidden md:flex`).
